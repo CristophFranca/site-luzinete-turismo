@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Visão geral</h1>
+    <p id="data-hoje">—</p>
+  </div>
+  <a href="/passagem/nova" class="btn btn-accent">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Nova passagem
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card-icon icon-laranja">
+      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+    </div>
+    <div class="stat-label">Passagens hoje</div>
+    <div class="stat-value" id="stat-passagens">—</div>
+    <div class="stat-sub">emitidas no dia</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-icon icon-verde">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    </div>
+    <div class="stat-label">Receita hoje</div>
+    <div class="stat-value" id="stat-receita">—</div>
+    <div class="stat-sub">em passagens emitidas</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-icon icon-azul">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+    </div>
+    <div class="stat-label">Viagens abertas</div>
+    <div class="stat-value" id="stat-viagens">—</div>
+    <div class="stat-sub">com emissão ativa</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card-icon icon-roxo">
+      <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    </div>
+    <div class="stat-label">Encomendas hoje</div>
+    <div class="stat-value" id="stat-encomendas">—</div>
+    <div class="stat-sub" id="stat-frete">frete: R$ —</div>
+  </div>
+</div>
+
+<!-- Viagens abertas -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-title">
+    <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+    Viagens em andamento
+  </div>
+
+  <div id="viagens-container">
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<!-- Busca rápida -->
+<div class="card">
+  <div class="card-title">
+    <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    Busca de passagem
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:14px">
+    <div class="search-bar" style="max-width:400px;flex:1">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="busca-input" placeholder="Buscar por nome, código ou CPF…" oninput="buscar()">
+    </div>
+  </div>
+  <div id="busca-resultado"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Data atual
+const agora = new Date();
+document.getElementById('data-hoje').textContent = agora.toLocaleDateString('pt-BR', {
+  weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+});
+
+// Stats
+async function carregarStats() {
+  const r = await api.get('/api/admin/dashboard-stats');
+  if (!r.ok) return;
+  const { passagens_hoje, receita_hoje, viagens_abertas, onibus_ativos } = r.data;
+  document.getElementById('stat-passagens').textContent = passagens_hoje;
+  document.getElementById('stat-receita').textContent =
+    'R$ ' + receita_hoje.toFixed(2).replace('.', ',');
+  document.getElementById('stat-viagens').textContent = viagens_abertas;
+  document.getElementById('stat-encomendas').textContent = r.data.encomendas_hoje ?? 0;
+  document.getElementById('stat-frete').textContent = 'frete: R$ ' + (r.data.frete_hoje ?? 0).toFixed(2).replace('.', ',');
+}
+
+// Viagens abertas
+async function carregarViagens() {
+  const r = await api.get('/api/viagens/?status=aberta');
+  const el = document.getElementById('viagens-container');
+  if (!r.ok || !r.data.length) {
+    el.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+      <h3>Nenhuma viagem aberta</h3>
+      <p>Crie uma viagem no painel de ônibus.</p>
+    </div>`;
+    return;
+  }
+
+  const rows = r.data.map(v => {
+    const dt = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric', hour:'2-digit', minute:'2-digit'});
+    const pct = Math.round((v.ocupadas / v.total_poltronas) * 100);
+    return `<tr>
+      <td><strong>${v.onibus}</strong></td>
+      <td>${v.origem} → ${v.destino}</td>
+      <td>${dt}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:var(--fundo);border-radius:4px;height:6px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--laranja);border-radius:4px"></div>
+          </div>
+          <span style="font-size:.78rem;color:var(--texto-3);white-space:nowrap">${v.ocupadas}/${v.total_poltronas}</span>
+        </div>
+      </td>
+      <td><a href="/passagem/nova?viagem=${v.id}" class="btn btn-sm btn-outline">Emitir</a></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Ônibus</th><th>Trecho</th><th>Partida</th><th>Ocupação</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+// Busca
+let debounce;
+async function buscar() {
+  clearTimeout(debounce);
+  debounce = setTimeout(async () => {
+    const q = document.getElementById('busca-input').value.trim();
+    const el = document.getElementById('busca-resultado');
+    if (q.length < 2) { el.innerHTML = ''; return; }
+    const r = await api.get('/api/passagens/buscar?q=' + encodeURIComponent(q));
+    if (!r.ok || !r.data.length) {
+      el.innerHTML = '<p style="color:var(--texto-3);font-size:.85rem">Nenhuma passagem encontrada.</p>';
+      return;
+    }
+    const rows = r.data.map(p => {
+      const dt = new Date(p.emitida_em).toLocaleDateString('pt-BR');
+      return `<tr>
+        <td class="td-mono">${p.codigo}</td>
+        <td>${p.passageiro_nome}</td>
+        <td>${p.origem} → ${p.destino}</td>
+        <td>${new Date(p.data_partida).toLocaleDateString('pt-BR')}</td>
+        <td>Poltrona ${p.numero_poltrona}</td>
+        <td><span class="badge ${p.cancelada ? 'badge-cancelada' : 'badge-aberta'}">${p.cancelada ? 'Cancelada' : 'Ativa'}</span></td>
+        <td>${dt}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Código</th><th>Passageiro</th><th>Trecho</th><th>Data viagem</th><th>Poltrona</th><th>Status</th><th>Emitida em</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }, 350);
+}
+
+carregarStats();
+carregarViagens();
+</script>
+{% endblock %}

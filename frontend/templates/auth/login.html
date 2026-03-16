@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Luzinete Turismo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="login-page">
+
+<div class="login-wrap">
+
+  <div class="login-brand">
+    <div>
+      <img src="/static/img/logo.svg" alt="LZ"
+           style="width:56px;height:56px;border-radius:14px;margin-bottom:28px;box-shadow:0 6px 20px rgba(232,112,10,.35)">
+      <h1 class="brand-headline">Sistema de<br>Passagens</h1>
+      <p class="brand-sub">Plataforma de emissao e gestao<br>da Luzinete Turismo.</p>
+    </div>
+    <div class="brand-features">
+      <div class="brand-feat"><div class="brand-feat-dot"></div>Emissao rapida com selecao de poltrona</div>
+      <div class="brand-feat"><div class="brand-feat-dot"></div>Envio automatico via WhatsApp</div>
+      <div class="brand-feat"><div class="brand-feat-dot"></div>Controle de encomendas com etiqueta PDF</div>
+      <div class="brand-feat"><div class="brand-feat-dot"></div>Historico completo por onibus</div>
+    </div>
+  </div>
+
+  <div class="login-form-panel">
+    <h2 class="login-form-title">Bem-vindo</h2>
+    <p class="login-form-sub">Entre com suas credenciais para acessar o sistema.</p>
+
+    {% if erro %}
+    <div class="alert alert-error" style="margin-bottom:16px">{{ erro }}</div>
+    {% endif %}
+
+    <div id="alerta" class="alert alert-error" style="display:none;margin-bottom:16px"></div>
+
+    <form id="form-login" method="POST" action="/login" autocomplete="on">
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email"
+               placeholder="operador@empresa.com.br"
+               autocomplete="email" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha"
+               autocomplete="current-password" required>
+      </div>
+
+      <label class="checkbox-row" style="margin-bottom:16px">
+        <input type="checkbox" id="lembrar" name="lembrar">
+        Manter conectado por 30 dias
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-login">
+        Entrar no sistema
+      </button>
+    </form>
+
+
+  </div>
+
+</div>
+
+<script>
+// Melhoria progressiva: intercepta o submit para dar feedback visual
+// Se JS falhar por qualquer motivo, o form POST nativo funciona normalmente
+(function() {
+  var form = document.getElementById('form-login');
+  var btn  = document.getElementById('btn-login');
+  var alerta = document.getElementById('alerta');
+
+  if (!form || !btn) return;
+
+  form.addEventListener('submit', function(e) {
+    var email = document.getElementById('email').value.trim();
+    var senha = document.getElementById('senha').value;
+
+    if (!email || !senha) {
+      e.preventDefault();
+      alerta.textContent = 'Preencha e-mail e senha.';
+      alerta.style.display = 'flex';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Entrando...';
+    // Deixa o form fazer POST normalmente
+  });
+})();
+</script>
+
+</body>
+</html>

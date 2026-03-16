@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Viagens — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Viagens{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Viagens</h1>
+    <p>Crie e gerencie as viagens da empresa</p>
+  </div>
+  <button class="btn btn-primary" id="btn-nova-viagem">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Nova viagem
+  </button>
+</div>
+
+<!-- Filtros -->
+<div class="card" style="margin-bottom:20px;padding:14px 18px">
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label style="font-size:.83rem;font-weight:600;color:var(--texto-2)">Status:</label>
+    <button class="btn btn-sm btn-primary" data-filtro="aberta" id="f-aberta">Abertas</button>
+    <button class="btn btn-sm btn-outline" data-filtro="encerrada" id="f-encerrada">Encerradas</button>
+    <button class="btn btn-sm btn-outline" data-filtro="" id="f-todas">Todas</button>
+  </div>
+</div>
+
+<div id="viagens-grid" class="bus-grid">
+  <div class="loading-dots"><span></span><span></span><span></span></div>
+</div>
+
+<!-- Modal: nova/editar viagem -->
+<div class="modal-overlay" id="modal-viagem">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-viagem-title">Nova viagem</h3>
+      <button class="modal-close" id="btn-fechar-modal-viagem">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label>Empresa / Onibus *</label>
+      <input type="text" id="v-empresa" placeholder="Ex: Vanda Turismo, Onibus LZ-001">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Origem *</label>
+        <input type="text" id="v-origem" placeholder="Cidade de saida">
+      </div>
+      <div class="form-group">
+        <label>Destino *</label>
+        <input type="text" id="v-destino" placeholder="Cidade de chegada">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Data e hora de partida *</label>
+        <input type="datetime-local" id="v-partida">
+      </div>
+      <div class="form-group">
+        <label>Retorno (opcional)</label>
+        <input type="datetime-local" id="v-retorno">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Total de poltronas</label>
+        <input type="number" id="v-poltronas" value="44" min="1" max="200">
+      </div>
+      <div class="form-group">
+        <label>Valor inteiro (R$)</label>
+        <input type="number" id="v-inteiro" step="0.01" placeholder="80.00">
+      </div>
+      <div class="form-group">
+        <label>Valor meia (R$)</label>
+        <input type="number" id="v-meia" step="0.01" placeholder="40.00">
+      </div>
+    </div>
+
+    <div id="modal-viagem-erro" class="alert alert-error" style="display:none;margin-top:8px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar-viagem">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-viagem">Criar viagem</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _viagens = [];
+var _filtroAtivo = 'aberta';
+var _editandoViagemId = null;
+
+function el(id) { return document.getElementById(id); }
+
+// ── Filtros ───────────────────────────────────────────────
+document.querySelectorAll('[data-filtro]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-filtro]').forEach(function(b) {
+      b.className = 'btn btn-sm btn-outline';
+    });
+    this.className = 'btn btn-sm btn-primary';
+    _filtroAtivo = this.getAttribute('data-filtro');
+    carregarViagens();
+  });
+});
+
+// ── Carregar viagens ──────────────────────────────────────
+async function carregarViagens() {
+  var grid = el('viagens-grid');
+  grid.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  var url = '/api/viagens/' + (_filtroAtivo ? '?status=' + _filtroAtivo : '');
+  var r = await api.get(url);
+  if (!r.ok) { grid.innerHTML = '<p style="color:var(--vermelho)">Erro ao carregar.</p>'; return; }
+  _viagens = r.data;
+  renderViagens();
+}
+
+function renderViagens() {
+  var grid = el('viagens-grid');
+  if (!_viagens.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">'
+      + '<svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>'
+      + '<h3>Nenhuma viagem encontrada</h3>'
+      + '<p>Clique em "Nova viagem" para comecar.</p></div>';
+    return;
+  }
+
+  var html = '';
+  _viagens.forEach(function(v, idx) {
+    var partida = new Date(v.data_partida);
+    var dtStr   = partida.toLocaleDateString('pt-BR', {day:'2-digit', month:'short', year:'numeric'});
+    var hrStr   = partida.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    var retorno = v.data_retorno
+      ? new Date(v.data_retorno).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})
+      : null;
+
+    var badgeClass = v.status === 'aberta' ? 'badge-aberta' : 'badge-encerrada';
+    var btnEncerrar = v.status === 'aberta'
+      ? '<button class="btn btn-sm btn-ghost" style="color:var(--texto-3)" data-idx="' + idx + '" data-action="encerrar">Encerrar</button>'
+      : '';
+
+    html += '<div class="bus-card">'
+      + '<div class="bus-card-header">'
+      + '<div class="bus-id" style="font-size:.95rem">' + v.empresa + '</div>'
+      + '<span class="badge ' + badgeClass + '">' + v.status + '</span>'
+      + '</div>'
+      + '<div class="bus-card-body">'
+      + '<div class="bus-detail"><span class="bus-detail-label">Trecho</span><span class="bus-detail-value">' + v.origem + ' → ' + v.destino + '</span></div>'
+      + '<div class="bus-detail"><span class="bus-detail-label">Partida</span><span class="bus-detail-value">' + dtStr + ' ' + hrStr + '</span></div>'
+      + (retorno ? '<div class="bus-detail"><span class="bus-detail-label">Retorno</span><span class="bus-detail-value">' + retorno + '</span></div>' : '')
+      + '<div class="bus-detail"><span class="bus-detail-label">Poltronas</span><span class="bus-detail-value">' + v.ocupadas + ' / ' + v.total_poltronas + ' ocupadas</span></div>'
+      + '<div class="bus-detail"><span class="bus-detail-label">Valor</span><span class="bus-detail-value">R$ ' + (v.valor_inteiro||0).toFixed(2).replace('.',',') + (v.valor_meia ? ' / meia R$ ' + v.valor_meia.toFixed(2).replace('.',',') : '') + '</span></div>'
+      + '</div>'
+      + '<div class="bus-card-actions">'
+      + btnEncerrar
+      + '</div>'
+      + '</div>';
+  });
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('[data-action]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx    = parseInt(this.getAttribute('data-idx'));
+      var action = this.getAttribute('data-action');
+      if (action === 'encerrar') encerrarViagem(_viagens[idx]);
+    });
+  });
+}
+
+// ── Modal nova viagem ─────────────────────────────────────
+el('btn-nova-viagem').addEventListener('click', function() {
+  _editandoViagemId = null;
+  el('modal-viagem-title').textContent = 'Nova viagem';
+  el('btn-salvar-viagem').textContent  = 'Criar viagem';
+  ['v-empresa','v-origem','v-destino','v-partida','v-retorno','v-inteiro','v-meia'].forEach(function(id) {
+    el(id).value = '';
+  });
+  el('v-poltronas').value = 44;
+  el('modal-viagem-erro').style.display = 'none';
+  el('modal-viagem').classList.add('open');
+});
+
+el('btn-salvar-viagem').addEventListener('click', async function() {
+  var erro = el('modal-viagem-erro');
+  erro.style.display = 'none';
+
+  var payload = {
+    empresa:         el('v-empresa').value.trim(),
+    origem:          el('v-origem').value.trim(),
+    destino:         el('v-destino').value.trim(),
+    data_partida:    el('v-partida').value,
+    data_retorno:    el('v-retorno').value || null,
+    total_poltronas: parseInt(el('v-poltronas').value) || 44,
+    valor_inteiro:   parseFloat(el('v-inteiro').value) || 0,
+    valor_meia:      parseFloat(el('v-meia').value) || null,
+  };
+
+  if (!payload.empresa || !payload.origem || !payload.destino || !payload.data_partida) {
+    erro.textContent = 'Preencha: empresa, origem, destino e data de partida.';
+    erro.style.display = 'flex';
+    return;
+  }
+
+  var r = await api.post('/api/viagens/', payload);
+  if (r.ok) {
+    fecharModal('modal-viagem');
+    carregarViagens();
+  } else {
+    erro.textContent = (r.data && r.data.erro) || 'Erro ao salvar.';
+    erro.style.display = 'flex';
+  }
+});
+
+async function encerrarViagem(v) {
+  if (!confirm('Encerrar a viagem "' + v.empresa + ' — ' + v.origem + ' → ' + v.destino + '"?')) return;
+  var r = await api.put('/api/viagens/' + v.id, {status: 'encerrada'});
+  if (r.ok) carregarViagens();
+  else alert((r.data && r.data.erro) || 'Erro ao encerrar.');
+}
+
+// ── Fechar modal ──────────────────────────────────────────
+function fecharModal(id) { el(id).classList.remove('open'); }
+['btn-fechar-modal-viagem','btn-cancelar-viagem'].forEach(function(id) {
+  el(id).addEventListener('click', function() { fecharModal('modal-viagem'); });
+});
+el('modal-viagem').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal('modal-viagem');
+});
+
+carregarViagens();
+</script>
+{% endblock %}

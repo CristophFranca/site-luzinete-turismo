@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+{% block title %}Admin — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Painel Administrativo{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Administracao</h1>
+    <p>Usuarios, funcionalidades, backups e status do sistema</p>
+  </div>
+</div>
+
+<div class="admin-grid">
+
+  <div style="display:flex;flex-direction:column;gap:18px">
+
+    <!-- Usuarios -->
+    <div class="card">
+      <div class="card-title">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+        Usuarios do sistema
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" id="btn-novo-usuario">+ Novo</button>
+      </div>
+
+      <div id="form-novo-usuario" style="display:none;margin-bottom:16px;padding:14px;background:var(--fundo);border-radius:var(--r-md);border:1px solid var(--borda)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nome completo</label>
+            <input type="text" id="op-nome" placeholder="Nome do operador">
+          </div>
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="op-email" placeholder="email@empresa.com">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Senha</label>
+            <input type="text" id="op-senha" placeholder="Minimo 6 caracteres" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Perfil</label>
+            <select id="op-perfil">
+              <option value="operador">Operador</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+        </div>
+        <div id="op-erro" class="alert alert-error" style="display:none;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" id="btn-criar-usuario">Criar usuario</button>
+          <button class="btn btn-outline" id="btn-cancelar-usuario">Cancelar</button>
+        </div>
+      </div>
+
+      <div id="usuarios-lista">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <!-- Feature Flags -->
+    <div class="card">
+      <div class="card-title">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Feature Flags
+      </div>
+      <p style="font-size:.82rem;color:var(--texto-3);margin-bottom:16px">
+        Ative ou desative funcionalidades em tempo real, sem reiniciar o servidor.
+      </p>
+      <div class="flag-list" id="flags-list">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:18px">
+
+
+    <!-- Atualizacao do sistema -->
+    <div class="card" id="card-update">
+      <div class="card-title">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Atualizacao do sistema
+      </div>
+      <div id="update-status-area">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Backup do banco
+      </div>
+      <p style="font-size:.82rem;color:var(--texto-3);margin-bottom:16px">
+        Copia o arquivo SQLite com timestamp. Os 30 mais recentes sao mantidos.
+      </p>
+      <button class="btn btn-outline btn-full" id="btn-backup">Fazer backup agora</button>
+      <div id="backup-status" style="display:none;margin-top:12px"></div>
+      <div class="divider"></div>
+      <div style="font-size:.8rem;font-weight:600;color:var(--texto-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Backups salvos</div>
+      <div id="backup-list">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Status do sistema
+      </div>
+      <div id="sys-status">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Modal editar usuario -->
+<div class="modal-overlay" id="modal-editar-usuario">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 class="modal-title">Editar usuario</h3>
+      <button class="modal-close" id="btn-fechar-modal-usuario">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="edit-uid">
+    <div class="form-group">
+      <label>Nome</label>
+      <input type="text" id="edit-nome">
+    </div>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="edit-email">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nova senha <span style="font-weight:400;color:var(--texto-3)">(opcional)</span></label>
+        <input type="text" id="edit-senha" placeholder="Deixe em branco para manter" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Perfil</label>
+        <select id="edit-perfil">
+          <option value="operador">Operador</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+    <div id="edit-erro" class="alert alert-error" style="display:none;margin-bottom:10px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-cancelar-edicao">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-edicao">Salvar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Estado global de usuarios para evitar JSON em onclick
+var _usuarios = [];
+
+// ── Helpers ────────────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
+
+function mostrarErro(id, msg) {
+  var e = el(id);
+  e.textContent = msg;
+  e.style.display = 'flex';
+}
+
+// ── Usuarios ───────────────────────────────────────────────
+async function carregarUsuarios() {
+  var r = await api.get('/api/admin/usuarios');
+  var container = el('usuarios-lista');
+  if (!r.ok) {
+    container.innerHTML = '<p style="color:var(--vermelho);font-size:.85rem">Erro ao carregar usuarios.</p>';
+    return;
+  }
+  _usuarios = r.data;
+  renderUsuarios();
+}
+
+function renderUsuarios() {
+  var container = el('usuarios-lista');
+  if (!_usuarios.length) {
+    container.innerHTML = '<p style="font-size:.82rem;color:var(--texto-3)">Nenhum usuario cadastrado.</p>';
+    return;
+  }
+
+  var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  _usuarios.forEach(function(u, idx) {
+    var cor = u.perfil === 'admin' ? 'var(--laranja)' : 'var(--azul)';
+    var inicial = u.nome.charAt(0).toUpperCase();
+    var inativo = u.ativo ? '' : ' <span style="color:var(--vermelho);font-weight:400">(inativo)</span>';
+    var perfil  = u.perfil === 'admin' ? 'Administrador' : 'Operador';
+
+    html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--fundo);border-radius:var(--r-md);border:1px solid var(--borda)">';
+    html += '<div style="width:34px;height:34px;border-radius:50%;background:' + cor + ';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0">' + inicial + '</div>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="font-weight:600;font-size:.88rem;color:var(--texto-1)">' + u.nome + inativo + '</div>';
+    html += '<div style="font-size:.76rem;color:var(--texto-3)">' + u.email + ' &nbsp;&middot;&nbsp; ' + perfil + ' &nbsp;&middot;&nbsp; Ultimo acesso: ' + u.ultimo_acesso + '</div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;flex-shrink:0">';
+    html += '<button class="btn btn-sm btn-outline" data-idx="' + idx + '" data-action="editar">Editar</button>';
+    if (u.ativo) {
+      html += '<button class="btn btn-sm btn-ghost" style="color:var(--vermelho)" data-idx="' + idx + '" data-action="desativar">Desativar</button>';
+    }
+    html += '</div></div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Eventos via delegacao — sem onclick inline
+  container.querySelectorAll('[data-action]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-idx'));
+      var action = this.getAttribute('data-action');
+      if (action === 'editar') abrirEdicao(_usuarios[idx]);
+      if (action === 'desativar') desativarUsuario(_usuarios[idx].id, _usuarios[idx].nome);
+    });
+  });
+}
+
+el('btn-novo-usuario').addEventListener('click', function() {
+  var f = el('form-novo-usuario');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  el('op-erro').style.display = 'none';
+});
+
+el('btn-cancelar-usuario').addEventListener('click', function() {
+  el('form-novo-usuario').style.display = 'none';
+});
+
+el('btn-criar-usuario').addEventListener('click', async function() {
+  el('op-erro').style.display = 'none';
+  var nome   = el('op-nome').value.trim();
+  var email  = el('op-email').value.trim();
+  var senha  = el('op-senha').value.trim();
+  var perfil = el('op-perfil').value;
+
+  if (!nome || !email || !senha) {
+    mostrarErro('op-erro', 'Preencha todos os campos.');
+    return;
+  }
+
+  var r = await api.post('/api/admin/usuarios', { nome: nome, email: email, senha: senha, perfil: perfil });
+  if (!r.ok) {
+    mostrarErro('op-erro', r.data.erro || 'Erro ao criar usuario.');
+    return;
+  }
+
+  el('op-nome').value = '';
+  el('op-email').value = '';
+  el('op-senha').value = '';
+  el('form-novo-usuario').style.display = 'none';
+  carregarUsuarios();
+});
+
+function abrirEdicao(u) {
+  el('edit-uid').value    = u.id;
+  el('edit-nome').value   = u.nome;
+  el('edit-email').value  = u.email;
+  el('edit-senha').value  = '';
+  el('edit-perfil').value = u.perfil;
+  el('edit-erro').style.display = 'none';
+  el('modal-editar-usuario').classList.add('open');
+}
+
+el('btn-salvar-edicao').addEventListener('click', async function() {
+  el('edit-erro').style.display = 'none';
+  var uid = el('edit-uid').value;
+  var payload = {
+    nome:   el('edit-nome').value.trim(),
+    email:  el('edit-email').value.trim(),
+    perfil: el('edit-perfil').value,
+  };
+  var senha = el('edit-senha').value.trim();
+  if (senha) payload.senha = senha;
+
+  var r = await api.put('/api/admin/usuarios/' + uid, payload);
+  if (!r.ok) {
+    mostrarErro('edit-erro', r.data.erro || 'Erro ao salvar.');
+    return;
+  }
+  el('modal-editar-usuario').classList.remove('open');
+  carregarUsuarios();
+});
+
+async function desativarUsuario(id, nome) {
+  if (!confirm('Desativar "' + nome + '"? Ele nao conseguira mais fazer login.')) return;
+  var r = await api.delete('/api/admin/usuarios/' + id);
+  if (r.ok) carregarUsuarios();
+  else alert((r.data && r.data.erro) || 'Erro ao desativar.');
+}
+
+el('btn-fechar-modal-usuario').addEventListener('click', function() {
+  el('modal-editar-usuario').classList.remove('open');
+});
+el('btn-cancelar-edicao').addEventListener('click', function() {
+  el('modal-editar-usuario').classList.remove('open');
+});
+el('modal-editar-usuario').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+
+// ── Feature Flags ──────────────────────────────────────────
+async function carregarFlags() {
+  var r = await api.get('/api/admin/features');
+  var container = el('flags-list');
+  if (!r.ok) { container.innerHTML = 'Erro ao carregar.'; return; }
+  var html = '';
+  r.data.forEach(function(f) {
+    html += '<div class="flag-row">'
+          + '<div class="flag-info"><strong>' + f.chave + '</strong><small>' + f.descricao + '</small></div>'
+          + '<label class="toggle">'
+          + '<input type="checkbox" ' + (f.ativo ? 'checked' : '') + ' data-chave="' + f.chave + '">'
+          + '<div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('input[data-chave]').forEach(function(inp) {
+    inp.addEventListener('change', function() {
+      api.put('/api/admin/features/' + this.getAttribute('data-chave'), { ativo: this.checked })
+        .then(function(r) { if (!r.ok) { alert('Erro'); carregarFlags(); } });
+    });
+  });
+}
+
+// ── Backup ──────────────────────────────────────────────────
+el('btn-backup').addEventListener('click', async function() {
+  var btn = this;
+  var status = el('backup-status');
+  btn.disabled = true;
+  btn.textContent = 'Realizando backup...';
+  status.style.display = 'none';
+  var r = await api.post('/api/admin/backup', {});
+  btn.disabled = false;
+  btn.textContent = 'Fazer backup agora';
+  status.className = 'alert alert-' + (r.ok ? 'success' : 'error');
+  status.textContent = r.ok ? r.data.mensagem : r.data.erro;
+  status.style.display = 'flex';
+  if (r.ok) carregarBackups();
+});
+
+async function carregarBackups() {
+  var r = await api.get('/api/admin/backups');
+  var container = el('backup-list');
+  if (!r.ok || !r.data.length) {
+    container.innerHTML = '<p style="font-size:.82rem;color:var(--texto-3)">Nenhum backup encontrado.</p>';
+    return;
+  }
+  var html = '<div class="backup-list">';
+  r.data.forEach(function(b) {
+    html += '<div class="backup-row">'
+          + '<span class="backup-nome">' + b.nome + '</span>'
+          + '<span class="backup-meta">' + b.tamanho_kb + ' KB &middot; ' + b.criado_em + '</span>'
+          + '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ── Status ──────────────────────────────────────────────────
+async function carregarStatus() {
+  var r = await api.get('/api/admin/dashboard-stats');
+  var container = el('sys-status');
+  if (!r.ok) return;
+  var d = r.data;
+  container.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">'
+    + '<div class="backup-row"><span class="backup-nome">Passagens emitidas hoje</span><span class="backup-meta">' + d.passagens_hoje + '</span></div>'
+    + '<div class="backup-row"><span class="backup-nome">Receita do dia</span><span class="backup-meta">R$ ' + (d.receita_hoje || 0).toFixed(2).replace('.',',') + '</span></div>'
+    + '<div class="backup-row"><span class="backup-nome">Encomendas hoje</span><span class="backup-meta">' + d.encomendas_hoje + '</span></div>'
+    + '<div class="backup-row"><span class="backup-nome">Viagens abertas</span><span class="backup-meta">' + d.viagens_abertas + '</span></div>'
+    + '<div class="backup-row"><span class="backup-nome">Onibus ativos</span><span class="backup-meta">' + d.onibus_ativos + '</span></div>'
+    + '</div>';
+}
+
+
+// ── Update do sistema ──────────────────────────────────────
+async function carregarStatusUpdate() {
+  var area = el('update-status-area');
+  var r = await api.get('/api/update/status');
+  if (!r.ok) {
+    area.innerHTML = '<p style="font-size:.82rem;color:var(--texto-3)">Erro ao verificar atualizacoes.</p>';
+    return;
+  }
+
+  var d = r.data;
+  var versaoAtual = d.versao_atual;
+  var update = d.update;
+
+  if (!update || !update.nova) {
+    area.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--fundo);border-radius:var(--r-md);border:1px solid var(--borda)">'
+      + '<span style="font-size:1.2rem">✅</span>'
+      + '<div><div style="font-weight:600;font-size:.88rem">Sistema atualizado</div>'
+      + '<div style="font-size:.76rem;color:var(--texto-3)">Versao atual: ' + versaoAtual + '</div></div>'
+      + '</div>'
+      + '<p style="font-size:.78rem;color:var(--texto-3);margin-top:10px">Para atualizar: coloque o arquivo <strong>update_vX.X.X.zip</strong> na pasta <strong>updates/</strong>.</p>';
+    return;
+  }
+
+  area.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff8e1;border-radius:var(--r-md);border:1px solid #f59e0b;margin-bottom:14px">'
+    + '<span style="font-size:1.4rem">🆕</span>'
+    + '<div style="flex:1">'
+    + '<div style="font-weight:700;font-size:.9rem;color:#92400e">Atualizacao disponivel!</div>'
+    + '<div style="font-size:.78rem;color:#78350f">Versao atual: <strong>' + versaoAtual + '</strong> → Nova: <strong>' + update.versao_nova + '</strong></div>'
+    + '<div style="font-size:.76rem;color:#92400e;margin-top:2px">Arquivo: ' + update.arquivo + '</div>'
+    + '</div></div>'
+    + '<div id="update-erro" class="alert alert-error" style="display:none;margin-bottom:10px"></div>'
+    + '<button class="btn btn-primary btn-full" id="btn-aplicar-update">Aplicar atualizacao agora</button>'
+    + '<p style="font-size:.75rem;color:var(--texto-3);margin-top:8px">Um backup do banco sera feito automaticamente antes de atualizar. O sistema reiniciara em seguida.</p>';
+
+  el('btn-aplicar-update').addEventListener('click', async function() {
+    var btn = this;
+    var erro = el('update-erro');
+    erro.style.display = 'none';
+    if (!confirm('Aplicar a atualizacao ' + update.versao_nova + '?\n\nO sistema fara um backup automatico e reiniciara em seguida.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Aplicando... aguarde';
+    var r2 = await api.post('/api/update/aplicar');
+    if (!r2.ok) {
+      erro.textContent = (r2.data && r2.data.erro) || 'Erro ao aplicar update.';
+      erro.style.display = 'flex';
+      btn.disabled = false;
+      btn.textContent = 'Aplicar atualizacao agora';
+      return;
+    }
+    btn.textContent = 'Reiniciando... recarregando em 8s';
+    setTimeout(function() { window.location.reload(); }, 8000);
+  });
+}
+
+carregarUsuarios();
+carregarFlags();
+carregarBackups();
+carregarStatus();
+carregarStatusUpdate();
+</script>
+{% endblock %}

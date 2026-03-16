@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}Histórico de Encomendas — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Histórico de Encomendas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Histórico de encomendas</h1>
+    <p>Consulte, atualize status e imprima etiquetas</p>
+  </div>
+  <a href="/encomendas" class="btn btn-accent">
+    <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Nova encomenda
+  </a>
+</div>
+
+<!-- Filtros -->
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div class="form-group" style="max-width:360px;margin-bottom:0">
+      <label>Viagem</label>
+      <select id="sel-viagem" onchange="carregarHistorico()">
+        <option value="">— todas as viagens —</option>
+      </select>
+    </div>
+    <div class="search-bar" style="flex:1;max-width:340px">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="busca-input" placeholder="Buscar por código, nome ou CPF…" oninput="buscarDireto()">
+    </div>
+    <div class="form-group" style="max-width:160px;margin-bottom:0">
+      <label>Status</label>
+      <select id="sel-status" onchange="filtrar()">
+        <option value="">Todos</option>
+        <option value="pendente">Pendente</option>
+        <option value="em_transito">Em trânsito</option>
+        <option value="entregue">Entregue</option>
+        <option value="devolvida">Devolvida</option>
+        <option value="extraviada">Extraviada</option>
+        <option value="cancelada">Cancelada</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div id="historico-container">
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    <h3>Selecione um ônibus ou busque uma encomenda</h3>
+    <p>O histórico completo será exibido aqui.</p>
+  </div>
+</div>
+
+<!-- Modal: atualizar status -->
+<div class="modal-overlay" id="modal-status">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h3 class="modal-title">Atualizar status</h3>
+      <button class="modal-close" onclick="fecharModal('modal-status')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p id="modal-status-codigo" style="font-size:.85rem;color:var(--texto-3);margin-bottom:16px"></p>
+    <div class="form-group">
+      <label>Novo status</label>
+      <select id="novo-status">
+        <option value="pendente">Pendente</option>
+        <option value="em_transito">Em trânsito</option>
+        <option value="entregue">Entregue</option>
+        <option value="devolvida">Devolvida</option>
+        <option value="extraviada">Extraviada</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fecharModal('modal-status')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarStatus()">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let historicoData = [];
+let statusEncId = null;
+
+const BADGE_STATUS = {
+  pendente:    'badge-cancelada',
+  em_transito: 'badge-inteiro',
+  entregue:    'badge-aberta',
+  devolvida:   'badge-encerrada',
+  extraviada:  'badge-cancelada',
+  cancelada:   'badge-cancelada',
+};
+
+const LABEL_STATUS = {
+  pendente:'Pendente', em_transito:'Em trânsito', entregue:'Entregue',
+  devolvida:'Devolvida', extraviada:'Extraviada', cancelada:'Cancelada'
+};
+
+async function init() {
+  var sel = document.getElementById('sel-viagem');
+  var r = await api.get('/api/viagens/');
+  if (!r.ok) return;
+  r.data.forEach(function(v) {
+    var dt  = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit', month:'short', year:'numeric'});
+    var opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = (v.empresa || v.onibus) + '  |  ' + v.origem + ' → ' + v.destino + '  |  ' + dt;
+    sel.appendChild(opt);
+  });
+}
+
+async function carregarHistorico() {
+  const oid = document.getElementById('sel-viagem').value;
+  if (!oid) return;
+  const el = document.getElementById('historico-container');
+  el.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  const r = await api.get('/api/encomendas/historico/viagem/' + oid);
+  if (!r.ok) { el.innerHTML = '<div class="alert alert-error">Erro ao carregar.</div>'; return; }
+  // Novo endpoint retorna objeto único, wrappear em array para render
+  historicoData = Array.isArray(r.data) ? r.data : [r.data];
+  filtrar();
+}
+
+function filtrar() {
+  const statusFiltro = document.getElementById('sel-status').value;
+  renderHistorico(historicoData, statusFiltro);
+}
+
+function renderHistorico(data, statusFiltro='') {
+  const el = document.getElementById('historico-container');
+  if (!data.length) {
+    el.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      <h3>Nenhuma encomenda</h3><p>Não há encomendas para este ônibus.</p>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = data.map((item, idx) => {
+    const v = item.viagem;
+    const dt = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+    const encs = statusFiltro
+      ? item.encomendas.filter(e => e.status === statusFiltro)
+      : item.encomendas;
+
+    if (!encs.length && statusFiltro) return '';
+
+    const rows = encs.map(e => `
+      <tr>
+        <td class="td-mono">${e.codigo}</td>
+        <td>
+          <div style="font-weight:600">${e.remetente_nome}</div>
+          <div style="font-size:.78rem;color:var(--texto-3)">${e.remetente_cidade || ''}</div>
+        </td>
+        <td>
+          <div style="font-weight:600">${e.destinatario_nome}</div>
+          <div style="font-size:.78rem;color:var(--texto-3)">${e.destinatario_cidade || ''}</div>
+        </td>
+        <td style="max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.descricao || '—'}</td>
+        <td>${e.peso_kg ? e.peso_kg.toFixed(1)+' kg' : '—'}</td>
+        <td>R$ ${e.valor_frete.toFixed(2).replace('.',',')}</td>
+        <td><span class="badge ${BADGE_STATUS[e.status]||''}">${LABEL_STATUS[e.status]||e.status}</span></td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-primary" onclick="abrirPDF(${e.id})" title="Imprimir etiqueta">
+              <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              PDF
+            </button>
+            ${!e.cancelada ? `
+            <button class="btn btn-sm btn-outline" onclick="abrirStatus(${e.id}, '${e.codigo}', '${e.status}')">Status</button>
+            <button class="btn btn-sm btn-ghost" style="color:var(--vermelho)" onclick="cancelarEnc(${e.id}, ${idx})">✕</button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    if (!rows.trim()) return '';
+
+    return `
+    <div style="margin-bottom:16px">
+      <div class="historico-viagem-header" onclick="toggleBloco(${idx})" style="cursor:pointer">
+        <div style="flex:1">
+          <div class="hv-rota">${v.origem} → ${v.destino}</div>
+          <div class="hv-meta">${dt} · ${v.empresa || v.onibus || ""} · ${item.total_ativas} encomendas · R$ ${item.receita_frete.toFixed(2).replace('.',',')}</div>
+        </div>
+        <span class="badge badge-${v.status}">${v.status}</span>
+        <svg id="chv-${idx}" style="width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;transition:.2s" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="historico-viagem-body" id="bloco-${idx}">
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>Código</th><th>Remetente</th><th>Destinatário</th>
+            <th>Descrição</th><th>Peso</th><th>Frete</th><th>Status</th><th>Ações</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Busca direta (sem precisar selecionar ônibus)
+let debounce;
+async function buscarDireto() {
+  clearTimeout(debounce);
+  debounce = setTimeout(async () => {
+    const q = document.getElementById('busca-input').value.trim();
+    const el = document.getElementById('historico-container');
+    if (q.length < 2) {
+      if (historicoData.length) filtrar();
+      else el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><h3>Digite ao menos 2 caracteres</h3></div>`;
+      return;
+    }
+    const r = await api.get('/api/encomendas/buscar?q=' + encodeURIComponent(q));
+    if (!r.ok || !r.data.length) {
+      el.innerHTML = '<p style="padding:20px;color:var(--texto-3)">Nenhuma encomenda encontrada.</p>';
+      return;
+    }
+    const rows = r.data.map(e => `
+      <tr>
+        <td class="td-mono">${e.codigo}</td>
+        <td>${e.remetente_nome}</td>
+        <td>${e.destinatario_nome}</td>
+        <td>${e.origem} → ${e.destino}</td>
+        <td>${new Date(e.data_partida).toLocaleDateString('pt-BR')}</td>
+        <td>R$ ${e.valor_frete.toFixed(2).replace('.',',')}</td>
+        <td><span class="badge ${BADGE_STATUS[e.status]||''}">${LABEL_STATUS[e.status]||e.status}</span></td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="abrirPDF(${e.id})">PDF</button>
+          ${!e.cancelada ? `<button class="btn btn-sm btn-outline" onclick="abrirStatus(${e.id},'${e.codigo}','${e.status}')" style="margin-left:4px">Status</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Código</th><th>Remetente</th><th>Destinatário</th><th>Trecho</th><th>Data</th><th>Frete</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }, 350);
+}
+
+function toggleBloco(idx) {
+  const el = document.getElementById(`bloco-${idx}`);
+  const chv = document.getElementById(`chv-${idx}`);
+  const aberto = el.style.display !== 'none';
+  el.style.display = aberto ? 'none' : 'block';
+  chv.style.transform = aberto ? 'rotate(-90deg)' : 'rotate(0)';
+}
+
+function abrirPDF(id) {
+  window.open(`/api/encomendas/${id}/pdf`, '_blank');
+}
+
+function abrirStatus(id, codigo, statusAtual) {
+  statusEncId = id;
+  document.getElementById('modal-status-codigo').textContent = `Encomenda: ${codigo}`;
+  document.getElementById('novo-status').value = statusAtual;
+  document.getElementById('modal-status').classList.add('open');
+}
+
+async function confirmarStatus() {
+  const novoStatus = document.getElementById('novo-status').value;
+  const r = await api.put(`/api/encomendas/${statusEncId}/status`, { status: novoStatus });
+  fecharModal('modal-status');
+  if (r.ok) {
+    await carregarHistorico();
+  } else {
+    alert(r.data.erro || 'Erro ao atualizar status.');
+  }
+}
+
+async function cancelarEnc(id, idx) {
+  if (!confirm('Confirmar cancelamento desta encomenda?')) return;
+  const r = await api.post(`/api/encomendas/${id}/cancelar`);
+  if (r.ok) await carregarHistorico();
+  else alert(r.data.erro || 'Erro ao cancelar.');
+}
+
+function fecharModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) fecharModal(el.id); });
+});
+
+init();
+</script>
+{% endblock %}

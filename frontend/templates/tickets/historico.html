@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Historico — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Historico{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Historico de viagens</h1>
+    <p>Visualize passagens emitidas por viagem</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div class="form-group" style="max-width:380px;margin-bottom:0">
+      <label>Selecionar viagem</label>
+      <select id="sel-viagem">
+        <option value="">— selecione —</option>
+      </select>
+    </div>
+    <div class="search-bar" style="flex:1;max-width:320px">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="filtro-nome" placeholder="Filtrar por passageiro…">
+    </div>
+  </div>
+</div>
+
+<div id="historico-container">
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+    <h3>Selecione uma viagem</h3>
+    <p>O historico de passagens sera exibido aqui.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var historicoData = [];
+
+function el(id) { return document.getElementById(id); }
+
+// ── Init — carrega todas as viagens no select ─────────────
+async function init() {
+  var r = await api.get('/api/viagens/');
+  if (!r.ok) return;
+  var sel = el('sel-viagem');
+  r.data.forEach(function(v) {
+    var dt  = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit', month:'short', year:'numeric'});
+    var opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = (v.empresa || v.onibus) + '  |  ' + v.origem + ' → ' + v.destino + '  |  ' + dt;
+    sel.appendChild(opt);
+  });
+}
+
+el('sel-viagem').addEventListener('change', carregarHistorico);
+el('filtro-nome').addEventListener('input', function() {
+  renderHistorico(this.value.trim());
+});
+
+// ── Carregar passagens da viagem selecionada ──────────────
+async function carregarHistorico() {
+  var vid = el('sel-viagem').value;
+  var container = el('historico-container');
+  if (!vid) { container.innerHTML = ''; return; }
+
+  container.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+  var r = await api.get('/api/passagens/historico/viagem/' + vid);
+  if (!r.ok) {
+    container.innerHTML = '<div class="alert alert-error">Erro ao carregar historico.</div>';
+    return;
+  }
+  // Wrap em formato compatível com render
+  historicoData = [{ viagem: r.data.viagem, passagens: r.data.passagens, total_ativas: r.data.total_ativas }];
+  renderHistorico('');
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderHistorico(filtro) {
+  var container = el('historico-container');
+  if (!historicoData.length) {
+    container.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg><h3>Sem passagens</h3><p>Nenhuma passagem encontrada.</p></div>';
+    return;
+  }
+
+  var html = '';
+  historicoData.forEach(function(item, idx) {
+    var v   = item.viagem;
+    var dt  = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+    var hr  = new Date(v.data_partida).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    var ret = v.data_retorno ? new Date(v.data_retorno).toLocaleDateString('pt-BR', {day:'2-digit',month:'short'}) : null;
+
+    var passagens = filtro
+      ? item.passagens.filter(function(p) { return p.passageiro_nome.toLowerCase().includes(filtro.toLowerCase()); })
+      : item.passagens;
+
+    var receita = passagens.filter(function(p) { return !p.cancelada; })
+                           .reduce(function(a, p) { return a + p.valor_pago; }, 0);
+
+    var rows = '';
+    passagens.forEach(function(p) {
+      var acoes = '<button class="btn btn-sm btn-primary" data-pdf="' + p.id + '">PDF</button>';
+      if (!p.cancelada) {
+        acoes += '<button class="btn btn-sm btn-outline" data-cancelar="' + p.id + '" data-idx="' + idx + '">Cancelar</button>';
+        if (p.passageiro_whatsapp || p.passageiro_telefone) {
+          acoes += '<button class="btn btn-sm btn-ghost" data-wpp="' + p.id + '" title="WhatsApp">📲</button>';
+        }
+      }
+      rows += '<tr class="' + (p.cancelada ? 'linha-cancelada' : '') + '">'
+        + '<td class="td-mono">' + p.codigo + '</td>'
+        + '<td>' + p.passageiro_nome + '</td>'
+        + '<td>' + (p.passageiro_cpf || '—') + '</td>'
+        + '<td>' + (p.passageiro_whatsapp || p.passageiro_telefone || '—') + '</td>'
+        + '<td style="text-align:center">' + p.numero_poltrona + '</td>'
+        + '<td><span class="badge badge-' + p.tipo_passagem + '">' + p.tipo_passagem + '</span></td>'
+        + '<td>R$ ' + p.valor_pago.toFixed(2).replace('.', ',') + '</td>'
+        + '<td>' + p.forma_pagamento + '</td>'
+        + '<td><span class="badge ' + (p.cancelada ? 'badge-cancelada' : 'badge-aberta') + '">' + (p.cancelada ? 'Cancelada' : 'Ativa') + '</span></td>'
+        + '<td><div style="display:flex;gap:4px">' + acoes + '</div></td>'
+        + '</tr>';
+    });
+
+    var empresa = v.empresa || v.onibus || '';
+    var rota = empresa + '  |  ' + v.origem + ' → ' + v.destino + (ret ? ' ↩ ' + ret : '');
+    var meta = dt + ' ' + hr
+      + ' &nbsp;·&nbsp; ' + item.total_ativas + ' ativas'
+      + ' &nbsp;·&nbsp; R$ ' + receita.toFixed(2).replace('.', ',');
+
+    var tbody = !passagens.length
+      ? '<p style="padding:20px;color:var(--texto-3);font-size:.85rem">Nenhuma passagem encontrada.</p>'
+      : '<div class="table-wrap"><table>'
+        + '<thead><tr><th>Codigo</th><th>Passageiro</th><th>CPF</th><th>Contato</th>'
+        + '<th style="text-align:center">Poltrona</th><th>Tipo</th><th>Valor</th>'
+        + '<th>Pagamento</th><th>Status</th><th></th></tr></thead>'
+        + '<tbody>' + rows + '</tbody></table></div>';
+
+    html += '<div class="historico-viagem" style="margin-bottom:16px" id="viagem-block-' + idx + '">'
+      + '<div class="historico-viagem-header" data-toggle="' + idx + '">'
+      + '<div style="flex:1">'
+      + '<div class="hv-rota">' + rota + '</div>'
+      + '<div class="hv-meta">' + meta + '</div>'
+      + '</div>'
+      + '<span class="badge badge-' + v.status + '">' + v.status + '</span>'
+      + '<svg id="chevron-' + idx + '" style="width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;transition:.2s" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>'
+      + '</div>'
+      + '<div class="historico-viagem-body" id="viagem-body-' + idx + '">' + tbody + '</div>'
+      + '</div>';
+  });
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('[data-toggle]').forEach(function(btn) {
+    btn.addEventListener('click', function() { toggleBloco(parseInt(this.getAttribute('data-toggle'))); });
+  });
+  container.querySelectorAll('[data-pdf]').forEach(function(btn) {
+    btn.addEventListener('click', function() { window.open('/api/passagens/' + this.getAttribute('data-pdf') + '/pdf', '_blank'); });
+  });
+  container.querySelectorAll('[data-cancelar]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      cancelarPassagem(parseInt(this.getAttribute('data-cancelar')), parseInt(this.getAttribute('data-idx')));
+    });
+  });
+  container.querySelectorAll('[data-wpp]').forEach(function(btn) {
+    btn.addEventListener('click', function() { reenviarWpp(parseInt(this.getAttribute('data-wpp'))); });
+  });
+}
+
+function toggleBloco(idx) {
+  var body = el('viagem-body-' + idx);
+  var chev = el('chevron-' + idx);
+  var aberto = body.style.display !== 'none';
+  body.style.display = aberto ? 'none' : 'block';
+  chev.style.transform = aberto ? 'rotate(-90deg)' : 'rotate(0)';
+}
+
+async function cancelarPassagem(id, idx) {
+  if (!confirm('Confirmar cancelamento desta passagem?')) return;
+  var r = await api.post('/api/passagens/' + id + '/cancelar');
+  if (r.ok) {
+    historicoData[idx].passagens = historicoData[idx].passagens.map(function(p) {
+      return p.id === id ? Object.assign({}, p, {cancelada: true}) : p;
+    });
+    historicoData[idx].total_ativas = historicoData[idx].passagens.filter(function(p) { return !p.cancelada; }).length;
+    renderHistorico(el('filtro-nome').value.trim());
+  } else {
+    alert((r.data && r.data.erro) || 'Erro ao cancelar.');
+  }
+}
+
+async function reenviarWpp(id) {
+  var r = await api.post('/api/passagens/' + id + '/whatsapp');
+  if (!r.ok) { alert('Erro: ' + ((r.data && r.data.erro) || 'Falha.')); return; }
+  if (r.data.wame && r.data.link) {
+    window.open(r.data.link, '_blank');
+  } else {
+    alert('Enviado: ' + r.data.mensagem);
+  }
+}
+
+init();
+</script>
+
+<style>
+.linha-cancelada td { opacity:.45; text-decoration:line-through; }
+.linha-cancelada td:last-child { opacity:1; text-decoration:none; }
+</style>
+{% endblock %}

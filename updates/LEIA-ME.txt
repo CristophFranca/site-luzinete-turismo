@@ -1,0 +1,27 @@
+# Pasta de Atualizacoes — Luzinete Turismo
+
+## Como atualizar o sistema
+
+1. Coloque o arquivo de update aqui dentro:
+   - O nome DEVE seguir o formato: `update_v1.2.3.zip`
+   - Exemplo: `update_v1.1.0.zip`
+
+2. Acesse o **Painel Admin** no navegador
+
+3. No card **"Atualizacao do sistema"** vai aparecer o botao
+   **"Aplicar atualizacao agora"**
+
+4. Clique no botao — o sistema vai:
+   - Fazer backup automatico do banco de dados
+   - Extrair os novos arquivos
+   - Reiniciar automaticamente
+
+## O que e preservado na atualizacao
+
+- `database/luzinete.db` — seus dados ficam intactos
+- `.env` — suas configuracoes ficam intactas
+- `updates/` — esta pasta
+
+## Historico
+
+Atualizacoes ja aplicadas ficam na pasta `aplicados/` com timestamp.

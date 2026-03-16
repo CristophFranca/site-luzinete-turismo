@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+{% block title %}Nova Passagem — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Nova Passagem{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Emitir passagens</h1>
+    <p>Selecione a viagem, poltronas e dados dos passageiros</p>
+  </div>
+</div>
+
+<div class="ticket-grid">
+
+  <!-- COL ESQUERDA: viagem + mapa -->
+  <div class="ticket-col">
+
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-num">1</span>
+        Selecionar viagem
+      </div>
+      <div class="form-group">
+        <label>Viagem</label>
+        <select id="sel-viagem" onchange="carregarPoltronas()">
+          <option value="">— selecione uma viagem —</option>
+        </select>
+      </div>
+      <div id="viagem-pill" class="viagem-selecionada-pill" style="display:none">
+        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <div>
+          <div id="viagem-rota" style="font-weight:600"></div>
+          <div id="viagem-detalhe" style="font-size:.78rem;opacity:.6"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="card-mapa" style="display:none">
+      <div class="card-title">
+        <span class="card-title-num">2</span>
+        Selecionar poltronas
+        <span id="mapa-livre" style="margin-left:auto;font-size:.78rem;font-weight:400;color:var(--texto-3)"></span>
+      </div>
+
+      <div class="seat-legenda">
+        <div class="seat-leg-item"><div class="seat-leg-dot" style="background:#F8F9FC;border-color:var(--borda)"></div>Livre</div>
+        <div class="seat-leg-item"><div class="seat-leg-dot" style="background:#FEF2F2;border-color:#FECACA"></div>Ocupada</div>
+        <div class="seat-leg-item"><div class="seat-leg-dot" style="background:var(--azul);border-color:var(--azul)"></div>Selecionada</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--texto-3);font-size:.78rem">
+        <div style="width:32px;height:2px;background:var(--borda)"></div>
+        FRENTE DO ÔNIBUS
+        <div style="flex:1;height:2px;background:var(--borda)"></div>
+      </div>
+
+      <div id="mapa-poltronas" class="mapa-poltronas"></div>
+
+      <div class="seat-info-bar" id="seat-info">Clique nas poltronas livres para selecioná-las.</div>
+      <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.83rem" id="btn-sem-poltrona" onclick="adicionarSemPoltrona()">
+        + Adicionar passageiro sem poltrona definida
+      </button>
+    </div>
+
+  </div>
+
+  <!-- COL DIREITA: lista de passageiros -->
+  <div class="ticket-col">
+
+    <!-- Lista dinâmica de passageiros -->
+    <div id="lista-passageiros" style="display:flex;flex-direction:column;gap:14px"></div>
+
+    <!-- Resultado da emissão -->
+    <div id="emit-resultado" style="display:none" class="card">
+      <div class="card-title" style="color:var(--verde)">
+        <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Passagens emitidas!
+      </div>
+      <div id="emit-codigos" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+      <button class="btn btn-outline btn-full" onclick="novaEmissao()">Nova emissão</button>
+    </div>
+
+    <div id="emit-erro" class="alert alert-error" style="display:none"></div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let viagemAtual  = null;
+let valorInt     = 0;
+let valorMeia    = 0;
+let poltronasOcupadas = [];
+let poltronasTotal    = 0;
+
+// Mapa: numero_poltrona → { elDiv, passageiroIdx }
+const mapaSelecao = {};
+
+// Array de passageiros: [{ poltrona, nome, cpf, tel, wpp, tipo, pgto, desconto, tipoDesconto }]
+let passageiros = [];
+
+// ── Init ─────────────────────────────────────────────────────
+
+// ── Viagens ───────────────────────────────────────────────────
+async function carregarViagens() {
+  var sel = document.getElementById('sel-viagem');
+  sel.innerHTML = '<option>Carregando...</option>';
+  document.getElementById('card-mapa').style.display = 'none';
+  document.getElementById('viagem-pill').style.display = 'none';
+  resetPassageiros();
+  var r = await api.get('/api/viagens/?status=aberta');
+  sel.innerHTML = '<option value="">— selecione uma viagem —</option>';
+  if (r.ok && r.data.length) {
+    r.data.forEach(function(v) {
+      var dt  = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+      var hr  = new Date(v.data_partida).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      var opt = document.createElement('option');
+      opt.value = v.id;
+      opt.dataset.v = JSON.stringify(v);
+      opt.textContent = (v.empresa || v.onibus) + '  |  ' + v.origem + ' → ' + v.destino + '  |  ' + dt + ' ' + hr;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+// ── Poltronas ────────────────────────────────────────────────
+async function carregarPoltronas() {
+  const sel = document.getElementById('sel-viagem');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value || !opt.dataset.v) return;
+
+  viagemAtual = JSON.parse(opt.dataset.v);
+  valorInt  = viagemAtual.valor_inteiro  || 0;
+  valorMeia = viagemAtual.valor_meia     || valorInt / 2;
+
+  const pill = document.getElementById('viagem-pill');
+  document.getElementById('viagem-rota').textContent = (viagemAtual.empresa || '') + '  |  ' + viagemAtual.origem + ' → ' + viagemAtual.destino;
+  const dt = new Date(viagemAtual.data_partida).toLocaleDateString('pt-BR', {weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('viagem-detalhe').textContent = dt + (viagemAtual.data_retorno ? ' · Com retorno' : ' · Somente ida');
+  pill.style.display = 'flex';
+
+  const r = await api.get(`/api/passagens/poltronas/${viagemAtual.id}`);
+  if (!r.ok) return;
+  poltronasOcupadas = r.data.ocupadas;
+  poltronasTotal    = r.data.total;
+
+  resetPassageiros();
+  renderMapa();
+  document.getElementById('card-mapa').style.display = 'block';
+}
+
+function renderMapa() {
+  const el = document.getElementById('mapa-poltronas');
+  el.innerHTML = '';
+
+  const livres = poltronasTotal - poltronasOcupadas.length - Object.keys(mapaSelecao).length;
+  document.getElementById('mapa-livre').textContent = `${livres} livre${livres !== 1 ? 's' : ''}`;
+
+  for (let i = 1; i <= poltronasTotal; i++) {
+    const div = document.createElement('div');
+    div.className = 'seat';
+    div.textContent = i;
+    div.id = `seat-${i}`;
+
+    if (poltronasOcupadas.includes(i)) {
+      div.classList.add('seat-ocupada');
+    } else if (mapaSelecao[i]) {
+      div.classList.add('seat-selecionada');
+    } else {
+      div.classList.add('seat-livre');
+      div.onclick = () => toggleSeat(i, div);
+    }
+
+    if (i % 4 === 3) div.classList.add('seat-corredor');
+    el.appendChild(div);
+  }
+}
+
+function toggleSeat(num, el) {
+  if (el.classList.contains('seat-selecionada') || el.classList.contains('seat-ocupada')) return;
+  passageiros.push({ poltrona: num, nome: '', cpf: '', tel: '', wpp: '', tipo: 'inteiro', pgto: 'dinheiro', desconto: 0, tipoDesconto: 'reais' });
+  mapaSelecao[num] = passageiros.length - 1;
+  el.classList.remove('seat-livre');
+  el.classList.add('seat-selecionada');
+  el.onclick = null;
+  renderPassageiros();
+  atualizarContador();
+}
+
+function adicionarSemPoltrona() {
+  // Usa poltrona null — identificador único negativo para evitar conflito
+  const key = 'nd_' + Date.now();
+  passageiros.push({ poltrona: null, poltronaKey: key, nome: '', cpf: '', tel: '', wpp: '', tipo: 'inteiro', pgto: 'dinheiro', desconto: 0, tipoDesconto: 'reais' });
+  renderPassageiros();
+  atualizarContador();
+}
+
+function atualizarContador() {
+  const sel   = Object.keys(mapaSelecao).length;
+  const semPol = passageiros.filter(p => p.poltrona === null || p.poltrona === undefined).length;
+  const total  = sel + semPol;
+  let msg = 'Clique nas poltronas livres para selecioná-las.';
+  if (total > 0) {
+    const parts = [];
+    if (sel > 0)    parts.push(sel + ' poltrona' + (sel > 1 ? 's' : '') + ' selecionada' + (sel > 1 ? 's' : ''));
+    if (semPol > 0) parts.push(semPol + ' sem poltrona definida');
+    msg = '✓  ' + parts.join('  +  ') + ' — preencha os dados abaixo.';
+  }
+  document.getElementById('seat-info').textContent = msg;
+}
+
+// ── Passageiros ───────────────────────────────────────────────
+function renderPassageiros() {
+  const el = document.getElementById('lista-passageiros');
+
+  if (!passageiros.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML = passageiros.map((p, i) => `
+    <div class="card" id="pax-card-${i}">
+      <div class="card-title" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="card-title-num" style="background:${p.poltrona ? 'var(--laranja)' : 'var(--texto-3)'}">${p.poltrona || '?'}</span>
+          Passageiro — ${p.poltrona ? 'Poltrona ' + p.poltrona : '<em style="font-weight:400;color:var(--texto-3)">Poltrona a definir</em>'}
+        </span>
+        <button class="btn btn-sm btn-ghost" style="color:var(--vermelho);padding:4px 8px" onclick="removerPoltronaUI(${i})">✕ Remover</button>
+      </div>
+
+      <div class="form-group">
+        <label>Nome completo *</label>
+        <input type="text" id="p${i}-nome" placeholder="Nome do passageiro"
+               value="${escHtml(p.nome)}" oninput="salvarCampo(${i},'nome',this.value)">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>CPF</label>
+          <input type="text" id="p${i}-cpf" placeholder="000.000.000-00" maxlength="14"
+                 value="${escHtml(p.cpf)}" oninput="salvarCampo(${i},'cpf',this.value)">
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="p${i}-tel" placeholder="(00) 00000-0000"
+                 value="${escHtml(p.tel)}" oninput="salvarCampo(${i},'tel',this.value)">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <input type="text" id="p${i}-wpp" placeholder="(00) 00000-0000"
+               value="${escHtml(p.wpp)}" oninput="salvarCampo(${i},'wpp',this.value)">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="p${i}-tipo" onchange="salvarCampo(${i},'tipo',this.value);atualizarValorCard(${i})">
+            <option value="inteiro" ${p.tipo==='inteiro'?'selected':''}>Inteiro</option>
+            <option value="meia"    ${p.tipo==='meia'   ?'selected':''}>Meia</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Pagamento</label>
+          <select id="p${i}-pgto" onchange="salvarCampo(${i},'pgto',this.value)">
+            <option value="dinheiro" ${p.pgto==='dinheiro'?'selected':''}>Dinheiro</option>
+            <option value="pix"      ${p.pgto==='pix'     ?'selected':''}>PIX</option>
+            <option value="cartao"   ${p.pgto==='cartao'  ?'selected':''}>Cartão</option>
+            <option value="outro"    ${p.pgto==='outro'   ?'selected':''}>Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="align-items:flex-end">
+        <div class="form-group" style="max-width:120px">
+          <label>Desconto</label>
+          <input type="number" id="p${i}-desconto" min="0" step="0.01"
+                 placeholder="0" value="${p.desconto || ''}"
+                 oninput="salvarCampo(${i},'desconto',parseFloat(this.value)||0);atualizarValorCard(${i})">
+        </div>
+        <div class="form-group" style="max-width:110px">
+          <label>Tipo desconto</label>
+          <select id="p${i}-tipoDesc" onchange="salvarCampo(${i},'tipoDesconto',this.value);atualizarValorCard(${i})">
+            <option value="reais"   ${p.tipoDesconto==='reais'  ?'selected':''}>R$ (reais)</option>
+            <option value="percent" ${p.tipoDesconto==='percent'?'selected':''}>% (porcento)</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Valor final</label>
+          <div class="valor-box" style="margin-bottom:0;height:38px;display:flex;align-items:center">
+            <span class="valor-box-num" id="p${i}-valor">${formatValor(p.tipo)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Botão emitir tudo
+  const total = passageiros.reduce((s, p) => s + calcValor(p), 0);
+  el.innerHTML += `
+    <button class="btn btn-accent btn-full btn-lg" id="btn-emitir" onclick="emitirTodos()">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+      Emitir ${passageiros.length} passagem${passageiros.length > 1 ? 's' : ''}
+      <span style="margin-left:auto;opacity:.75;font-weight:400;font-size:.85rem">
+        Total: R$ ${total.toFixed(2).replace('.',',')}
+      </span>
+    </button>
+  `;
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function calcValor(p) {
+  const base = p.tipo === 'meia' ? valorMeia : valorInt;
+  if (!p.desconto || p.desconto <= 0) return base;
+  if (p.tipoDesconto === 'percent') {
+    return Math.max(0, base - (base * p.desconto / 100));
+  }
+  return Math.max(0, base - p.desconto);
+}
+
+function formatValor(tipo) {
+  const v = tipo === 'meia' ? valorMeia : valorInt;
+  return (v > 0) ? 'R$ ' + v.toFixed(2).replace('.',',') : 'R$ —';
+}
+
+function salvarCampo(idx, campo, valor) {
+  if (passageiros[idx]) passageiros[idx][campo] = valor;
+}
+
+function atualizarValorCard(idx) {
+  const el = document.getElementById(`p${idx}-valor`);
+  if (el && passageiros[idx]) {
+    const base = passageiros[idx].tipo === 'meia' ? valorMeia : valorInt;
+    const final = calcValor(passageiros[idx]);
+    const temDesc = base !== final;
+    el.innerHTML = temDesc
+      ? '<span style="text-decoration:line-through;opacity:.5;font-size:.8em">R$ ' + base.toFixed(2).replace('.',',') + '</span> <span style="color:var(--verde)">R$ ' + final.toFixed(2).replace('.',',') + '</span>'
+      : 'R$ ' + final.toFixed(2).replace('.',',');
+  }
+  const total = passageiros.reduce((s, p) => s + calcValor(p), 0);
+  const btn = document.getElementById('btn-emitir');
+  if (btn) {
+    const span = btn.querySelector('span');
+    if (span) span.textContent = `Total: R$ ${total.toFixed(2).replace('.',',')}`;
+  }
+}
+
+function removerPoltronaUI(idx) {
+  const p = passageiros[idx];
+  if (!p) return;
+  if (p.poltrona !== null && p.poltrona !== undefined) {
+    delete mapaSelecao[p.poltrona];
+  }
+  passageiros.splice(idx, 1);
+  // Recalcular indices no mapaSelecao
+  Object.keys(mapaSelecao).forEach(k => {
+    mapaSelecao[k] = passageiros.findIndex(px => px.poltrona === parseInt(k));
+  });
+  renderMapa();
+  renderPassageiros();
+  atualizarContador();
+}
+
+function resetPassageiros() {
+  passageiros = [];
+  Object.keys(mapaSelecao).forEach(k => delete mapaSelecao[k]);
+  document.getElementById('lista-passageiros').innerHTML = '';
+  document.getElementById('emit-resultado').style.display = 'none';
+  document.getElementById('emit-erro').style.display = 'none';
+}
+
+// ── Emitir todos ─────────────────────────────────────────────
+async function emitirTodos() {
+  const erroEl = document.getElementById('emit-erro');
+  erroEl.style.display = 'none';
+
+  if (!passageiros.length) {
+    erroEl.textContent = 'Selecione ao menos uma poltrona.';
+    erroEl.style.display = 'flex'; return;
+  }
+
+  for (let i = 0; i < passageiros.length; i++) {
+    if (!passageiros[i].nome.trim()) {
+      erroEl.textContent = `Informe o nome do passageiro da poltrona ${passageiros[i].poltrona}.`;
+      erroEl.style.display = 'flex';
+      document.getElementById(`p${i}-nome`)?.focus();
+      return;
+    }
+  }
+
+  const btn = document.getElementById('btn-emitir');
+  if (btn) { btn.disabled = true; btn.textContent = 'Emitindo…'; }
+
+  const codigos = [];
+  const erros   = [];
+
+  for (const p of passageiros) {
+    const base  = p.tipo === 'meia' ? valorMeia : valorInt;
+    const final = calcValor(p);
+    const r = await api.post('/api/passagens/emitir', {
+      viagem_id:           viagemAtual.id,
+      numero_poltrona:     p.poltrona || null,
+      passageiro_nome:     p.nome.trim(),
+      passageiro_cpf:      p.cpf,
+      passageiro_telefone: p.tel,
+      passageiro_whatsapp: p.wpp,
+      tipo_passagem:       p.tipo,
+      valor_pago:          final,
+      valor_original:      base,
+      forma_pagamento:     p.pgto,
+    });
+    if (r.ok) codigos.push({ codigo: r.data.codigo, poltrona: p.poltrona, nome: p.nome });
+    else erros.push(`Poltrona ${p.poltrona}: ${r.data.erro || 'Erro'}`);
+  }
+
+  if (codigos.length) {
+    document.getElementById('emit-codigos').innerHTML = codigos.map(x => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--verde-bg);border-radius:var(--r-md)">
+        <span style="font-size:.85rem"><strong style="color:var(--verde)">${x.codigo}</strong> — Poltrona ${x.poltrona} — ${x.nome}</span>
+      </div>
+    `).join('');
+    document.getElementById('emit-resultado').style.display = 'block';
+    document.getElementById('emit-resultado').scrollIntoView({behavior:'smooth'});
+  }
+
+  if (erros.length) {
+    erroEl.innerHTML = erros.join('<br>');
+    erroEl.style.display = 'flex';
+  }
+
+  // Recarregar mapa
+  await carregarPoltronas();
+}
+
+function novaEmissao() {
+  document.getElementById('emit-resultado').style.display = 'none';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+carregarViagens();
+</script>
+
+{% endblock %}

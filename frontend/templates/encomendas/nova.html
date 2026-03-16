@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}Nova Encomenda — Luzinete Turismo{% endblock %}
+{% block topbar_title %}Nova Encomenda{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Registrar encomenda</h1>
+    <p>Preencha os dados do remetente, destinatário e da encomenda</p>
+  </div>
+  <a href="/encomendas/historico" class="btn btn-outline">
+    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Ver histórico
+  </a>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+  <!-- Coluna esquerda: viagem + remetente + destinatário -->
+  <div style="display:flex;flex-direction:column;gap:18px">
+
+    <!-- Viagem -->
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-num">1</span>
+        Selecionar viagem
+      </div>
+      <div class="form-group">
+        <label>Viagem</label>
+        <select id="sel-viagem" onchange="selecionarViagem()">
+          <option value="">— selecione uma viagem —</option>
+        </select>
+      </div>
+      <div id="viagem-pill" class="viagem-selecionada-pill" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <div>
+          <div id="viagem-rota" style="font-weight:600"></div>
+          <div id="viagem-detalhe" style="font-size:.78rem;opacity:.6"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remetente -->
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-num">2</span>
+        Remetente (quem envia)
+      </div>
+      <div class="form-group">
+        <label>Nome completo *</label>
+        <input type="text" id="r-nome" placeholder="Nome do remetente">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>CPF</label>
+          <input type="text" id="r-cpf" placeholder="000.000.000-00" maxlength="14">
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="r-tel" placeholder="(00) 00000-0000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Cidade de origem</label>
+        <input type="text" id="r-cidade" placeholder="Cidade do remetente">
+      </div>
+    </div>
+
+    <!-- Destinatário -->
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-num">3</span>
+        Destinatário (quem recebe)
+      </div>
+      <div class="form-group">
+        <label>Nome completo *</label>
+        <input type="text" id="d-nome" placeholder="Nome do destinatário">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>CPF</label>
+          <input type="text" id="d-cpf" placeholder="000.000.000-00" maxlength="14">
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="d-tel" placeholder="(00) 00000-0000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Cidade de destino</label>
+        <input type="text" id="d-cidade" placeholder="Cidade do destinatário">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Coluna direita: dados da encomenda + pagamento -->
+  <div style="display:flex;flex-direction:column;gap:18px">
+
+    <div class="card">
+      <div class="card-title">
+        <span class="card-title-num">4</span>
+        Dados da encomenda
+      </div>
+
+      <div class="form-group">
+        <label>Descrição do conteúdo *</label>
+        <input type="text" id="enc-desc" placeholder="Ex: Roupas, eletrônico, documentos…">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Peso aproximado (kg)</label>
+          <input type="number" id="enc-peso" step="0.1" min="0" placeholder="0.5">
+        </div>
+        <div class="form-group">
+          <label>Valor declarado (R$)</label>
+          <input type="number" id="enc-declarado" step="0.01" min="0" placeholder="150.00">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Observações</label>
+        <input type="text" id="enc-obs" placeholder="Frágil, urgente, refrigerado…">
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor do frete (R$) *</label>
+          <input type="number" id="enc-frete" step="0.01" min="0" placeholder="20.00"
+                 oninput="atualizarFrete()">
+        </div>
+        <div class="form-group">
+          <label>Forma de pagamento</label>
+          <select id="enc-pgto">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">PIX</option>
+            <option value="cartao">Cartão</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="valor-box">
+        <span class="valor-box-label">Valor do frete</span>
+        <span class="valor-box-num" id="frete-display">R$ —</span>
+      </div>
+
+      <div id="enc-erro"  class="alert alert-error"   style="display:none;margin-bottom:12px"></div>
+      <div id="enc-succ"  class="alert alert-success" style="display:none;margin-bottom:12px"></div>
+
+      <button class="btn btn-accent btn-full btn-lg" id="btn-registrar" onclick="registrar()" disabled>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Registrar encomenda
+      </button>
+    </div>
+
+    <!-- Card de impressão pós-registro -->
+    <div class="card" id="card-imprimir" style="display:none">
+      <div class="card-title" style="color:var(--verde)">
+        <svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Encomenda registrada!
+      </div>
+      <p style="font-size:.875rem;color:var(--texto-2);margin-bottom:16px">
+        Imprima a etiqueta abaixo e cole na encomenda antes de embarcar.
+      </p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary btn-full" id="btn-pdf" onclick="imprimirEtiqueta()">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimir etiqueta PDF
+        </button>
+        <button class="btn btn-outline" onclick="novaEncomenda()">
+          Nova encomenda
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let viagemAtual = null;
+let ultimaEncId = null;
+
+async function init() {
+  var sel = document.getElementById('sel-viagem');
+  sel.innerHTML = '<option value="">Carregando...</option>';
+  var r = await api.get('/api/viagens/?status=aberta');
+  sel.innerHTML = '<option value="">— selecione uma viagem —</option>';
+  if (r.ok && r.data.length) {
+    r.data.forEach(function(v) {
+      var dt  = new Date(v.data_partida).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+      var hr  = new Date(v.data_partida).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      var opt = document.createElement('option');
+      opt.value = v.id;
+      opt.dataset.v = JSON.stringify(v);
+      opt.textContent = (v.empresa || v.onibus) + '  |  ' + v.origem + ' → ' + v.destino + '  |  ' + dt + ' ' + hr;
+      sel.appendChild(opt);
+    });
+  } else {
+    sel.innerHTML += '<option disabled>Nenhuma viagem aberta</option>';
+  }
+}
+
+function selecionarViagem() {
+  const sel = document.getElementById('sel-viagem');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value || !opt.dataset.v) {
+    viagemAtual = null;
+    document.getElementById('viagem-pill').style.display = 'none';
+    validarForm(); return;
+  }
+  viagemAtual = JSON.parse(opt.dataset.v);
+  document.getElementById('viagem-rota').textContent =
+    (viagemAtual.empresa || viagemAtual.onibus || '') + '  |  ' + viagemAtual.origem + ' → ' + viagemAtual.destino;
+  var dtStr = new Date(viagemAtual.data_partida).toLocaleDateString('pt-BR',
+    {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  document.getElementById('viagem-detalhe').textContent = dtStr;
+  document.getElementById('viagem-pill').style.display = 'flex';
+  validarForm();
+}
+
+function atualizarFrete() {
+  const v = parseFloat(document.getElementById('enc-frete').value);
+  document.getElementById('frete-display').textContent =
+    isNaN(v) ? 'R$ —' : 'R$ ' + v.toFixed(2).replace('.', ',');
+  validarForm();
+}
+
+function validarForm() {
+  const ok = viagemAtual &&
+             document.getElementById('r-nome').value.trim() &&
+             document.getElementById('d-nome').value.trim() &&
+             document.getElementById('enc-desc').value.trim() &&
+             parseFloat(document.getElementById('enc-frete').value) >= 0;
+  document.getElementById('btn-registrar').disabled = !ok;
+}
+
+['r-nome','d-nome','enc-desc'].forEach(id => {
+  document.getElementById(id).addEventListener('input', validarForm);
+});
+
+async function registrar() {
+  const erro = document.getElementById('enc-erro');
+  const succ = document.getElementById('enc-succ');
+  const btn  = document.getElementById('btn-registrar');
+  erro.style.display = succ.style.display = 'none';
+
+  btn.disabled = true;
+  btn.textContent = 'Registrando…';
+
+  const r = await api.post('/api/encomendas/registrar', {
+    viagem_id:            viagemAtual.id,
+    onibus_id:            viagemAtual.onibus_id,
+    remetente_nome:       document.getElementById('r-nome').value.trim(),
+    remetente_cpf:        document.getElementById('r-cpf').value,
+    remetente_telefone:   document.getElementById('r-tel').value,
+    remetente_cidade:     document.getElementById('r-cidade').value.trim(),
+    destinatario_nome:    document.getElementById('d-nome').value.trim(),
+    destinatario_cpf:     document.getElementById('d-cpf').value,
+    destinatario_telefone: document.getElementById('d-tel').value,
+    destinatario_cidade:  document.getElementById('d-cidade').value.trim(),
+    descricao:            document.getElementById('enc-desc').value.trim(),
+    peso_kg:              parseFloat(document.getElementById('enc-peso').value) || null,
+    valor_frete:          parseFloat(document.getElementById('enc-frete').value) || 0,
+    valor_declarado:      parseFloat(document.getElementById('enc-declarado').value) || null,
+    forma_pagamento:      document.getElementById('enc-pgto').value,
+    observacoes:          document.getElementById('enc-obs').value.trim(),
+  });
+
+  btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Registrar encomenda`;
+
+  if (r.ok) {
+    ultimaEncId = r.data.id;
+    succ.innerHTML = `✅ &nbsp;<strong>${r.data.codigo}</strong> — registrada com sucesso!`;
+    succ.style.display = 'flex';
+    document.getElementById('card-imprimir').style.display = 'block';
+    document.getElementById('card-imprimir').scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    erro.textContent = r.data.erro || 'Erro ao registrar encomenda.';
+    erro.style.display = 'flex';
+    btn.disabled = false;
+  }
+}
+
+function imprimirEtiqueta() {
+  if (!ultimaEncId) return;
+  window.open(`/api/encomendas/${ultimaEncId}/pdf`, '_blank');
+}
+
+function novaEncomenda() {
+  document.getElementById('enc-succ').style.display = 'none';
+  document.getElementById('card-imprimir').style.display = 'none';
+  document.getElementById('enc-erro').style.display = 'none';
+  ['r-nome','r-cpf','r-tel','r-cidade','d-nome','d-cpf','d-tel','d-cidade',
+   'enc-desc','enc-peso','enc-declarado','enc-obs','enc-frete'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('frete-display').textContent = 'R$ —';
+  document.getElementById('btn-registrar').disabled = true;
+  ultimaEncId = null;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+init();
+</script>
+{% endblock %}

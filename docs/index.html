@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luzinete Turismo — Sistema de Passagens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --azul:#1C3159;--azul2:#243D6E;--azul3:#162847;
+  --laranja:#E8700A;--laranja2:#C55D06;
+  --fundo:#F7F8FA;--branco:#ffffff;
+  --borda:#E4E8F0;--texto:#1A1F2E;--texto2:#4A5568;--texto3:#8A96A8;
+  --verde:#16A34A;--verde-bg:#F0FDF4;
+  --fd:'Instrument Serif',Georgia,serif;
+  --fb:'DM Sans',system-ui,sans-serif;
+  --shadow:0 4px 24px rgba(28,49,89,.10);
+  --shadow-lg:0 12px 48px rgba(28,49,89,.15);
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--fb);background:var(--fundo);color:var(--texto);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(247,248,250,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--borda);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-logo-mark{width:34px;height:34px;background:var(--laranja);border-radius:8px;display:grid;place-items:center;font-family:var(--fd);font-size:1rem;color:#fff;font-style:italic}
+.nav-logo-name{font-family:var(--fd);font-size:1.1rem;color:var(--azul);font-style:italic}
+.nav-links{display:flex;align-items:center;gap:6px}
+.nav-links a{font-size:.82rem;font-weight:500;color:var(--texto2);text-decoration:none;padding:6px 12px;border-radius:6px;transition:background .15s,color .15s}
+.nav-links a:hover{background:var(--borda);color:var(--azul)}
+.nav-cta{background:var(--azul)!important;color:#fff!important;padding:7px 16px!important;border-radius:8px!important}
+.nav-cta:hover{background:var(--azul2)!important}
+
+/* ── HERO ── */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px 60px;text-align:center;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:linear-gradient(160deg,#1C3159 0%,#243D6E 50%,#1C3159 100%);z-index:0}
+.hero-bg::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,112,10,.18) 0%,transparent 60%)}
+.hero-dots{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:28px 28px}
+.hero-content{position:relative;z-index:1;max-width:780px}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(232,112,10,.2);border:1px solid rgba(232,112,10,.35);color:#F5A05A;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:28px}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:#E8700A;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+h1{font-family:var(--fd);font-size:clamp(2.6rem,6vw,4.2rem);line-height:1.1;color:#fff;margin-bottom:20px;font-style:italic}
+h1 em{color:var(--laranja);font-style:normal}
+.hero-sub{font-size:1.05rem;color:rgba(255,255,255,.65);line-height:1.7;max-width:540px;margin:0 auto 40px}
+.hero-btns{display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-primary{background:var(--laranja);color:#fff;font-family:var(--fb);font-size:.88rem;font-weight:600;padding:13px 28px;border-radius:10px;border:none;cursor:pointer;text-decoration:none;transition:background .15s,transform .1s;display:inline-flex;align-items:center;gap:7px}
+.btn-primary:hover{background:var(--laranja2);transform:translateY(-1px)}
+.btn-ghost{background:rgba(255,255,255,.1);color:#fff;font-family:var(--fb);font-size:.88rem;font-weight:500;padding:12px 24px;border-radius:10px;border:1px solid rgba(255,255,255,.2);cursor:pointer;text-decoration:none;transition:background .15s;display:inline-flex;align-items:center;gap:7px}
+.btn-ghost:hover{background:rgba(255,255,255,.16)}
+.hero-stats{display:flex;gap:40px;justify-content:center;margin-top:60px;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat-num{font-family:var(--fd);font-size:2rem;color:#fff;display:block;font-style:italic}
+.hero-stat-label{font-size:.75rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+
+/* ── SCREEN MOCKUP ── */
+.mockup-section{padding:80px 24px;background:var(--branco)}
+.section-label{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--laranja);margin-bottom:10px}
+.section-title{font-family:var(--fd);font-size:clamp(1.8rem,4vw,2.6rem);color:var(--azul);line-height:1.2;font-style:italic;margin-bottom:14px}
+.section-sub{font-size:.95rem;color:var(--texto2);line-height:1.7;max-width:520px}
+.mockup-wrap{max-width:1100px;margin:0 auto}
+.mockup-header{display:flex;align-items:flex-start;justify-content:space-between;gap:40px;margin-bottom:56px;flex-wrap:wrap}
+.mockup-text{flex:0 0 380px}
+
+/* Browser frame */
+.browser{background:var(--branco);border-radius:14px;border:1px solid var(--borda);box-shadow:var(--shadow-lg);overflow:hidden}
+.browser-bar{background:#F0F2F7;padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--borda)}
+.browser-dots{display:flex;gap:5px}
+.browser-dot{width:10px;height:10px;border-radius:50%}
+.browser-url{flex:1;background:var(--branco);border:1px solid var(--borda);border-radius:6px;padding:4px 12px;font-size:.72rem;color:var(--texto3);margin:0 10px}
+.screen{padding:0}
+
+/* App shell inside browser */
+.app{display:flex;height:480px;font-size:12px}
+.sidebar-demo{width:200px;background:var(--azul);display:flex;flex-direction:column;flex-shrink:0}
+.sd-logo{padding:16px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px}
+.sd-mark{width:28px;height:28px;background:var(--laranja);border-radius:6px;display:grid;place-items:center;font-family:var(--fd);font-size:.85rem;color:#fff;font-style:italic;flex-shrink:0}
+.sd-name{font-family:var(--fd);font-size:.9rem;color:#fff;font-style:italic;line-height:1.2}
+.sd-nav{padding:10px 8px;flex:1}
+.sd-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;color:rgba(255,255,255,.5);font-size:.72rem;font-weight:500;margin-bottom:1px;cursor:pointer;transition:background .1s,color .1s}
+.sd-item.active{background:rgba(255,255,255,.12);color:#fff}
+.sd-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.8)}
+.sd-dot{width:14px;height:14px;border-radius:4px;flex-shrink:0}
+.sd-dot.azul{background:rgba(255,255,255,.18)}
+.sd-dot.laranja{background:var(--laranja)}
+.main-demo{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar-demo{background:var(--branco);border-bottom:1px solid var(--borda);padding:0 16px;height:44px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tb-title{font-size:.78rem;font-weight:600;color:var(--azul)}
+.tb-search{background:var(--fundo);border:1px solid var(--borda);border-radius:6px;padding:4px 10px;font-size:.68rem;color:var(--texto3);width:160px}
+.content-demo{padding:16px;flex:1;overflow:hidden;background:var(--fundo)}
+.page-h{margin-bottom:14px}
+.page-h h2{font-family:var(--fd);font-size:1.1rem;color:var(--azul);font-style:italic}
+.page-h p{font-size:.68rem;color:var(--texto3)}
+
+/* Cards grid */
+.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat-card{background:var(--branco);border:1px solid var(--borda);border-radius:8px;padding:10px 12px}
+.sc-label{font-size:.6rem;color:var(--texto3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.sc-val{font-size:1.1rem;font-weight:600;color:var(--azul)}
+.sc-val.laranja{color:var(--laranja)}
+.sc-val.verde{color:var(--verde)}
+
+/* Ticket table */
+.ticket-table-wrap{background:var(--branco);border:1px solid var(--borda);border-radius:8px;overflow:hidden}
+.tt-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--borda)}
+.tt-title{font-size:.72rem;font-weight:600;color:var(--azul)}
+.tt-btn{background:var(--azul);color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:.64rem;font-weight:600;cursor:pointer}
+.tt-row{display:flex;align-items:center;padding:7px 14px;border-bottom:1px solid rgba(228,232,240,.5);gap:8px;font-size:.64rem;color:var(--texto2)}
+.tt-row:last-child{border-bottom:none}
+.tt-code{font-family:monospace;color:var(--azul);font-weight:600;min-width:80px}
+.tt-badge{padding:2px 7px;border-radius:100px;font-size:.58rem;font-weight:600}
+.badge-ativa{background:var(--verde-bg);color:var(--verde)}
+.badge-meia{background:#FFF7ED;color:#C2410C}
+.tt-val{margin-left:auto;font-weight:600;color:var(--azul)}
+
+/* ── FEATURES ── */
+.features{padding:80px 24px;background:var(--fundo)}
+.features-wrap{max-width:1100px;margin:0 auto}
+.features-header{text-align:center;margin-bottom:56px}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.feat-card{background:var(--branco);border:1px solid var(--borda);border-radius:14px;padding:24px;transition:box-shadow .2s,transform .2s}
+.feat-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.feat-icon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;margin-bottom:14px}
+.feat-icon.azul{background:#EEF2FA}
+.feat-icon.laranja{background:#FFF4EC}
+.feat-icon.verde{background:var(--verde-bg)}
+.feat-icon svg{width:20px;height:20px}
+.feat-icon.azul svg{stroke:var(--azul)}
+.feat-icon.laranja svg{stroke:var(--laranja)}
+.feat-icon.verde svg{stroke:var(--verde)}
+.feat-card h3{font-size:.95rem;font-weight:600;color:var(--azul);margin-bottom:7px}
+.feat-card p{font-size:.83rem;color:var(--texto2);line-height:1.6}
+
+/* ── FLOW ── */
+.flow-section{padding:80px 24px;background:var(--branco)}
+.flow-wrap{max-width:900px;margin:0 auto}
+.flow-header{text-align:center;margin-bottom:56px}
+.flow-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0;position:relative}
+.flow-steps::before{content:'';position:absolute;top:28px;left:10%;right:10%;height:2px;background:repeating-linear-gradient(90deg,var(--borda) 0,var(--borda) 8px,transparent 8px,transparent 14px);z-index:0}
+.flow-step{text-align:center;padding:0 12px;position:relative;z-index:1}
+.flow-num{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;font-family:var(--fd);font-size:1.3rem;font-style:italic;color:#fff;background:var(--azul);border:3px solid var(--branco)}
+.flow-step:nth-child(2) .flow-num{background:var(--laranja)}
+.flow-step:nth-child(3) .flow-num{background:var(--azul2)}
+.flow-step:nth-child(4) .flow-num{background:var(--verde)}
+.flow-step h4{font-size:.88rem;font-weight:600;color:var(--azul);margin-bottom:5px}
+.flow-step p{font-size:.75rem;color:var(--texto3);line-height:1.5}
+
+/* ── TECH STACK ── */
+.stack-section{padding:60px 24px;background:var(--azul)}
+.stack-wrap{max-width:900px;margin:0 auto;text-align:center}
+.stack-title{font-family:var(--fd);font-size:1.6rem;color:#fff;font-style:italic;margin-bottom:8px}
+.stack-sub{font-size:.88rem;color:rgba(255,255,255,.5);margin-bottom:36px}
+.stack-pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.8);font-size:.78rem;font-weight:500;padding:7px 16px;border-radius:100px}
+.pill.highlight{background:rgba(232,112,10,.25);border-color:rgba(232,112,10,.4);color:#F5A05A}
+
+/* ── UPDATE SYSTEM ── */
+.update-section{padding:80px 24px;background:var(--fundo)}
+.update-wrap{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.update-visual{background:var(--branco);border:1px solid var(--borda);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.uv-header{background:var(--azul);padding:14px 18px;display:flex;align-items:center;gap:8px}
+.uv-h-title{font-family:var(--fd);font-style:italic;color:#fff;font-size:.95rem}
+.uv-badge{background:rgba(232,112,10,.3);border:1px solid rgba(232,112,10,.5);color:#F5A05A;font-size:.65rem;font-weight:600;padding:3px 8px;border-radius:100px;margin-left:auto}
+.uv-body{padding:16px}
+.uv-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:6px}
+.uv-row.new{background:#FFF4EC;border:1px solid rgba(232,112,10,.2)}
+.uv-row.ok{background:var(--verde-bg);border:1px solid rgba(22,163,74,.15)}
+.uv-icon{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;flex-shrink:0;font-size:.8rem}
+.uv-icon.laranja{background:var(--laranja);color:#fff}
+.uv-icon.verde{background:var(--verde);color:#fff}
+.uv-text{font-size:.75rem}
+.uv-label{font-weight:600;color:var(--azul)}
+.uv-desc{color:var(--texto3);font-size:.68rem}
+.uv-btn{display:flex;margin-top:14px}
+.uv-apply{background:var(--laranja);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:.78rem;font-weight:600;cursor:pointer;width:100%;font-family:var(--fb)}
+
+/* ── FOOTER ── */
+footer{background:var(--azul3);padding:40px 24px;text-align:center}
+.footer-logo{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:14px}
+.footer-text{font-size:.78rem;color:rgba(255,255,255,.35);line-height:1.8}
+.footer-link{color:rgba(255,255,255,.5);text-decoration:none}
+.footer-link:hover{color:rgba(255,255,255,.8)}
+
+/* ── ANIMATIONS ── */
+.fade-up{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+.fade-up.visible{opacity:1;transform:none}
+
+@media(max-width:768px){
+  .nav-links{display:none}
+  .app{height:340px}
+  .sidebar-demo{width:140px}
+  .cards-grid{grid-template-columns:repeat(2,1fr)}
+  .update-wrap{grid-template-columns:1fr}
+  .flow-steps::before{display:none}
+  .mockup-header{flex-direction:column}
+  .mockup-text{flex:none}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark"><em>LZ</em></div>
+    <span class="nav-logo-name">Luzinete Turismo</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Funcionalidades</a>
+    <a href="#fluxo">Como funciona</a>
+    <a href="#tech">Tecnologia</a>
+    <a href="https://github.com" class="nav-cta">Ver no GitHub</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-dots"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Sistema open source
+    </div>
+    <h1>Gestão completa de<br><em>passagens e encomendas</em></h1>
+    <p class="hero-sub">Sistema web para empresas de turismo rodoviário. Emita passagens, gerencie encomendas, controle financeiro e atualize sem complicação.</p>
+    <div class="hero-btns">
+      <a href="https://github.com" class="btn-primary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        Ver código no GitHub
+      </a>
+      <a href="#demo" class="btn-ghost">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Ver demonstração
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-num">100%</span>
+        <span class="hero-stat-label">Python + Flask</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-num">Zero</span>
+        <span class="hero-stat-label">Configuração</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-num">SQLite</span>
+        <span class="hero-stat-label">Banco local</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-num">v1.2</span>
+        <span class="hero-stat-label">Versão atual</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MOCKUP / DEMO -->
+<section class="mockup-section" id="demo">
+  <div class="mockup-wrap">
+    <div class="mockup-header">
+      <div class="mockup-text fade-up">
+        <div class="section-label">Interface</div>
+        <h2 class="section-title">Design limpo,<br>feito para operar</h2>
+        <p class="section-sub">Painel lateral sempre visível, busca rápida no topo e cards com as informações que mais importam. Cada tela foi pensada para o uso real no dia a dia de uma empresa de turismo.</p>
+      </div>
+    </div>
+    <div class="browser fade-up">
+      <div class="browser-bar">
+        <div class="browser-dots">
+          <div class="browser-dot" style="background:#FF5F56"></div>
+          <div class="browser-dot" style="background:#FFBD2E"></div>
+          <div class="browser-dot" style="background:#27C93F"></div>
+        </div>
+        <div class="browser-url">localhost:5000/dashboard</div>
+      </div>
+      <div class="screen">
+        <div class="app">
+          <div class="sidebar-demo">
+            <div class="sd-logo">
+              <div class="sd-mark"><em>LZ</em></div>
+              <div class="sd-name">Luzinete<br>Turismo</div>
+            </div>
+            <div class="sd-nav">
+              <div class="sd-item active"><div class="sd-dot laranja"></div>Dashboard</div>
+              <div class="sd-item"><div class="sd-dot azul"></div>Nova Passagem</div>
+              <div class="sd-item"><div class="sd-dot azul"></div>Histórico</div>
+              <div class="sd-item"><div class="sd-dot azul"></div>Encomendas</div>
+              <div class="sd-item"><div class="sd-dot azul"></div>Viagens</div>
+              <div class="sd-item"><div class="sd-dot azul"></div>Relatório</div>
+              <div class="sd-item"><div class="sd-dot azul"></div>Admin</div>
+            </div>
+          </div>
+          <div class="main-demo">
+            <div class="topbar-demo">
+              <span class="tb-title">Dashboard</span>
+              <div class="tb-search">Buscar passageiro, código…</div>
+            </div>
+            <div class="content-demo">
+              <div class="page-h">
+                <h2>Bem-vindo de volta</h2>
+                <p>Segunda-feira, 16 de março de 2026</p>
+              </div>
+              <div class="cards-grid">
+                <div class="stat-card">
+                  <div class="sc-label">Passagens hoje</div>
+                  <div class="sc-val laranja">23</div>
+                </div>
+                <div class="stat-card">
+                  <div class="sc-label">Receita do dia</div>
+                  <div class="sc-val verde">R$ 2.840</div>
+                </div>
+                <div class="stat-card">
+                  <div class="sc-label">Viagens abertas</div>
+                  <div class="sc-val">4</div>
+                </div>
+                <div class="stat-card">
+                  <div class="sc-label">Encomendas</div>
+                  <div class="sc-val">7</div>
+                </div>
+              </div>
+              <div class="ticket-table-wrap">
+                <div class="tt-header">
+                  <span class="tt-title">Últimas passagens emitidas</span>
+                  <button class="tt-btn">+ Nova passagem</button>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-code">LZ-2026-00089</span>
+                  <span style="flex:1">Maria Aparecida S.</span>
+                  <span>Brasília → São Luís</span>
+                  <span class="tt-badge badge-meia">Meia</span>
+                  <span class="tt-val">R$ 225,00</span>
+                  <span class="tt-badge badge-ativa" style="margin-left:6px">Ativa</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-code">LZ-2026-00088</span>
+                  <span style="flex:1">João Batista R.</span>
+                  <span>Brasília → São Luís</span>
+                  <span class="tt-badge badge-ativa" style="background:#EEF2FA;color:var(--azul)">Inteiro</span>
+                  <span class="tt-val">R$ 450,00</span>
+                  <span class="tt-badge badge-ativa" style="margin-left:6px">Ativa</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-code">LZ-2026-00087</span>
+                  <span style="flex:1">Carlos Eduardo M.</span>
+                  <span>Brasília → Palmas</span>
+                  <span class="tt-badge badge-ativa" style="background:#EEF2FA;color:var(--azul)">Inteiro</span>
+                  <span class="tt-val">R$ 180,00</span>
+                  <span class="tt-badge badge-ativa" style="margin-left:6px">Ativa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="features-wrap">
+    <div class="features-header fade-up">
+      <div class="section-label">Funcionalidades</div>
+      <h2 class="section-title">Tudo que uma empresa<br>de turismo precisa</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card fade-up">
+        <div class="feat-icon laranja">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        </div>
+        <h3>Emissão de passagens</h3>
+        <p>Mapa visual de poltronas, seleção múltipla, desconto por passageiro e emissão em lote. Suporta poltrona "a definir".</p>
+      </div>
+      <div class="feat-card fade-up">
+        <div class="feat-icon azul">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <h3>Gestão de encomendas</h3>
+        <p>Registro completo de remetente e destinatário, rastreio de status, geração de etiqueta PDF e histórico por viagem.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <div class="feat-icon verde">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <h3>Relatório financeiro</h3>
+        <p>Receita por período, breakdown por forma de pagamento e ranking de viagens. Filtros por dia, semana, mês e ano.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <div class="feat-icon azul">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <h3>PDF automático</h3>
+        <p>Comprovante profissional gerado na hora, com código da passagem, dados do passageiro, rota e via da empresa.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <div class="feat-icon laranja">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>WhatsApp integrado</h3>
+        <p>Link wa.me gerado automaticamente com todos os dados da passagem. Operador só clica em enviar. Zero API, zero custo.</p>
+      </div>
+      <div class="feat-card fade-up">
+        <div class="feat-icon verde">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </div>
+        <h3>Atualizações automáticas</h3>
+        <p>Coloque o arquivo zip em /updates, clique em aplicar no painel. Backup automático antes de atualizar, reinício sem intervenção.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLOW -->
+<section class="flow-section" id="fluxo">
+  <div class="flow-wrap">
+    <div class="flow-header fade-up">
+      <div class="section-label">Como funciona</div>
+      <h2 class="section-title">Do embarque ao PDF<br>em segundos</h2>
+    </div>
+    <div class="flow-steps">
+      <div class="flow-step fade-up">
+        <div class="flow-num">1</div>
+        <h4>Crie a viagem</h4>
+        <p>Empresa, trecho, data, poltronas e valor — sem precisar cadastrar ônibus antes.</p>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-num">2</div>
+        <h4>Selecione a poltrona</h4>
+        <p>Mapa visual mostra livres e ocupadas em tempo real. Selecione uma ou várias.</p>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-num">3</div>
+        <h4>Preencha os dados</h4>
+        <p>Nome, CPF, contato, forma de pagamento e desconto opcional por passageiro.</p>
+      </div>
+      <div class="flow-step fade-up">
+        <div class="flow-num">4</div>
+        <h4>Emita e envie</h4>
+        <p>PDF gerado na hora. WhatsApp abre com a mensagem já preenchida, é só confirmar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UPDATE SYSTEM -->
+<section class="update-section">
+  <div class="update-wrap">
+    <div class="fade-up">
+      <div class="section-label">Sistema de updates</div>
+      <h2 class="section-title">Atualize sem<br>sair do painel</h2>
+      <p class="section-sub" style="margin-bottom:20px">Coloque o arquivo <code style="background:#EEF2FA;color:var(--azul);padding:2px 6px;border-radius:4px;font-size:.85em">update_v1.2.0.zip</code> na pasta <code style="background:#EEF2FA;color:var(--azul);padding:2px 6px;border-radius:4px;font-size:.85em">updates/</code> e aplique pelo painel Admin. O servidor faz backup, extrai os arquivos e reinicia automaticamente.</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:8px">
+        <li style="display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--texto2)"><span style="color:var(--verde);font-size:1rem">✓</span> Backup automático do banco antes de atualizar</li>
+        <li style="display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--texto2)"><span style="color:var(--verde);font-size:1rem">✓</span> .env e database/ nunca são sobrescritos</li>
+        <li style="display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--texto2)"><span style="color:var(--verde);font-size:1rem">✓</span> VBS reinicia o servidor automaticamente</li>
+        <li style="display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--texto2)"><span style="color:var(--verde);font-size:1rem">✓</span> Histórico de atualizações aplicadas</li>
+      </ul>
+    </div>
+    <div class="update-visual fade-up">
+      <div class="uv-header">
+        <span style="font-size:.75rem">⟳</span>
+        <span class="uv-h-title">Atualização do sistema</span>
+        <div class="uv-badge">Novo disponível</div>
+      </div>
+      <div class="uv-body">
+        <div class="uv-row ok">
+          <div class="uv-icon verde">✓</div>
+          <div class="uv-text">
+            <div class="uv-label">Versão atual: 1.1.5</div>
+            <div class="uv-desc">Sistema atualizado</div>
+          </div>
+        </div>
+        <div class="uv-row new">
+          <div class="uv-icon laranja">↑</div>
+          <div class="uv-text">
+            <div class="uv-label">update_v1.2.0.zip detectado</div>
+            <div class="uv-desc">Atual: 1.1.5 → Nova: 1.2.0</div>
+          </div>
+        </div>
+        <p style="font-size:.7rem;color:var(--texto3);margin:12px 0 4px">Backup automático será feito antes. O sistema reiniciará em seguida.</p>
+        <button class="uv-apply">Aplicar atualização agora</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section class="stack-section" id="tech">
+  <div class="stack-wrap">
+    <h2 class="stack-title">Tecnologias utilizadas</h2>
+    <p class="stack-sub">Stack enxuta, sem dependências desnecessárias. Roda em qualquer Windows com Python instalado.</p>
+    <div class="stack-pills">
+      <span class="pill highlight">Python 3.10+</span>
+      <span class="pill highlight">Flask</span>
+      <span class="pill">SQLite</span>
+      <span class="pill">SQLAlchemy</span>
+      <span class="pill">Flask-Login</span>
+      <span class="pill">ReportLab</span>
+      <span class="pill">Gunicorn</span>
+      <span class="pill">bcrypt</span>
+      <span class="pill">Jinja2</span>
+      <span class="pill highlight">Zero frontend frameworks</span>
+      <span class="pill">VBS launcher</span>
+      <span class="pill">wa.me WhatsApp</span>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <div class="nav-logo-mark" style="width:28px;height:28px;font-size:.85rem"><em>LZ</em></div>
+    <span style="font-family:var(--fd);font-style:italic;color:rgba(255,255,255,.6);font-size:1rem">Luzinete Turismo</span>
+  </div>
+  <p class="footer-text">
+    Sistema open source desenvolvido com Flask · SQLite · Python<br>
+    <a href="https://github.com" class="footer-link">GitHub</a> · MIT License
+  </p>
+</footer>
+
+<script>
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
