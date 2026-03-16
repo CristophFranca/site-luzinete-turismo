@@ -36,8 +36,8 @@
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/seu-usuario/luzinete-turismo.git
-cd luzinete-turismo
+git clone https://github.com/CristophFranca/site-luzinete-turismo.git
+cd site-luzinete-turismo
 
 # 2. Instale as dependências
 pip install -r requirements.txt
